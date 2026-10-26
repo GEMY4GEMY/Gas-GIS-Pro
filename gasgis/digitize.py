@@ -44,8 +44,11 @@ class GasDigitizeTool(QgsMapToolEmitPoint):
     def add_geometry(self, geometry):
         feature = QgsFeature(self.layer.fields())
         feature.setGeometry(geometry)
+        self.layer.beginEditCommand("Digitize gas feature")
         if not self.layer.addFeature(feature):
+            self.layer.destroyEditCommand()
             raise RuntimeError("Failed to add geometry")
+        self.layer.endEditCommand()
         self.layer.triggerRepaint()
         if self.on_feature_added:
             self.on_feature_added()
