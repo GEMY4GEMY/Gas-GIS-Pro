@@ -178,8 +178,26 @@ class MainWindow(QMainWindow):
                 if not ok:
                     return
                 names = names if choice == "All layers" else [choice]
-            layers = [QgsVectorLayer(f"{path}|layername={name}", name, "ogr") for name in names]
-            invalid = [name for name, layer in zip(names, layers) if not layer.isValid()]
+            existing_sources = {
+                layer.source() for layer in self.project.mapLayers().values()
+                if isinstance(layer, QgsVectorLayer)
+            }
+            candidates = [
+                (name, f"{path}|layername={name}") for name in names
+            ]
+            candidates = [
+                (name, source) for name, source in candidates
+                if source not in existing_sources
+            ]
+            if not candidates:
+                self.statusBar().showMessage("Selected GeoPackage layers are already open.", 5000)
+                return
+            layers = [
+                QgsVectorLayer(source, name, "ogr") for name, source in candidates
+            ]
+            invalid = [
+                name for (name, _), layer in zip(candidates, layers) if not layer.isValid()
+            ]
             if invalid:
                 QMessageBox.warning(self, "Import failed", "Unable to load: " + ", ".join(invalid))
                 return
