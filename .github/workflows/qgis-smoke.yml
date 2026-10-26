@@ -120,6 +120,10 @@ jobs:
               with sqlite3.connect(gpkg) as db:
                   names = {row[0] for row in db.execute('SELECT table_name FROM gpkg_contents')}
               assert {'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'} <= names
+              from gasgis.geopackage_catalog import geopackage_vector_tables
+              assert set(geopackage_vector_tables(gpkg)) == {
+                  'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'
+              }
               saved = services = valves = risers = None
               try:
                   create_asset_layer(Path(tmp) / 'feet.gpkg', 'gas_mains', 'EPSG:2263')
