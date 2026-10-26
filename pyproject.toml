@@ -1,0 +1,8 @@
+[project]
+name = "gas-gis-pro"
+version = "0.1.0.dev0"
+description = "Professional GIS for utility networks, specializing in natural gas"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
