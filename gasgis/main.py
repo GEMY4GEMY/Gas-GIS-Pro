@@ -13,6 +13,8 @@ from gasgis.network_audit import disconnected_endpoints
 from gasgis.audit_export import export_audit_csv
 from gasgis.geometry_adapter import line_segments
 from gasgis.crossings import crossing_candidates
+from gasgis.node_adapter import point_nodes
+from gasgis.node_connectivity import match_nodes
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
 from qgis.core import QgsSnappingConfig, QgsWkbTypes
@@ -60,6 +62,7 @@ class MainWindow(QMainWindow):
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
             ("Audit crossings", self.audit_crossings),
+            ("Audit valve/riser proximity", self.audit_nodes),
             ("Undo", self.undo_selected_edit),
             ("Redo", self.redo_selected_edit),
             ("Save edits", self.save_selected_edit),
@@ -278,6 +281,42 @@ class MainWindow(QMainWindow):
             )
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, "Network audit", str(exc))
+
+    def audit_nodes(self):
+        try:
+            pipes = self.selected_vector_layer()
+            segments = line_segments(pipes)
+            endpoints = []
+            for asset, start, end in segments:
+                endpoints.extend([
+                    (asset, 0, start[0], start[1]),
+                    (asset, 1, end[0], end[1]),
+                ])
+            candidates = [
+                layer for layer in self.project.mapLayers().values()
+                if isinstance(layer, QgsVectorLayer)
+                and layer.isValid()
+                and layer.geometryType() == QgsWkbTypes.PointGeometry
+                and layer.crs() == pipes.crs()
+            ]
+            if not candidates:
+                raise ValueError("Load a valve or riser point layer with the same CRS")
+            names = [f"{layer.name()} [{layer.id()}]" for layer in candidates]
+            selected, ok = QInputDialog.getItem(
+                self, "Select valve/riser layer", "Point layer:", names, 0, False
+            )
+            if not ok:
+                return
+            points = point_nodes(candidates[names.index(selected)], pipes.crs())
+            matched, unmatched = match_nodes(endpoints, points)
+            QMessageBox.information(
+                self, "Valve/riser proximity",
+                f"Endpoint checks: {len(endpoints)}; near points: {len(matched)}; "
+                f"without nearby point: {len(unmatched)}. Tolerance: 0.05 m. "
+                "This does not prove physical connectivity."
+            )
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Valve/riser proximity", str(exc))
 
     def audit_crossings(self):
         try:
