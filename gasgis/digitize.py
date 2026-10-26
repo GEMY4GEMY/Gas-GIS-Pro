@@ -5,6 +5,9 @@ Uses QGIS map canvas snapping configuration. Saving is explicit via toolbar.
 from qgis.core import QgsFeature, QgsGeometry, QgsPointXY, QgsWkbTypes
 from qgis.gui import QgsMapToolEmitPoint, QgsRubberBand
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QMessageBox
+from gasgis.attribute_form import prompt_attributes
+from gasgis.numbering import next_asset_id
 
 
 class GasDigitizeTool(QgsMapToolEmitPoint):
@@ -42,8 +45,31 @@ class GasDigitizeTool(QgsMapToolEmitPoint):
         self.rubber.reset(QgsWkbTypes.LineGeometry)
 
     def add_geometry(self, geometry):
-        feature = QgsFeature(self.layer.fields())
-        feature.setGeometry(geometry)
+        existing = []
+        if self.layer.fields().indexFromName("asset_id") >= 0:
+            existing = [str(f["asset_id"]) for f in self.layer.getFeatures()]
+        defaults = {}
+        if self.layer.fields().indexFromName("asset_id") >= 0:
+            defaults["asset_id"] = next_asset_id(existing)
+        values = prompt_attributes(self.canvas, self.layer, defaults)
+        if values is None:
+            return
+        try:
+            if values.get("asset_id") in existing:
+                raise ValueError("Duplicate asset_id")
+            feature = QgsFeature(self.layer.fields())
+            feature.setGeometry(geometry)
+            for name, raw in values.items():
+                index = self.layer.fields().indexFromName(name)
+                field = self.layer.fields().at(index)
+                if field.isNumeric():
+                    raw = int(raw) if raw.lstrip("-").isdigit() else float(raw)
+                    if name == "diameter_mm" and raw <= 0:
+                        raise ValueError("Diameter must be positive")
+                feature.setAttribute(index, raw)
+        except (ValueError, TypeError) as exc:
+            QMessageBox.warning(self.canvas, "Invalid attributes", str(exc))
+            return
         self.layer.beginEditCommand("Digitize gas feature")
         if not self.layer.addFeature(feature):
             self.layer.destroyEditCommand()
