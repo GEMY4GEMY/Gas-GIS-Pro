@@ -203,6 +203,9 @@ jobs:
           with patch('gasgis.main.QColorDialog.getColor', return_value=QColor('#1769aa')):
               window.set_selected_layer_color()
           assert removal_layer.renderer().symbol().color().name() == '#1769aa'
+          with patch('gasgis.main.QInputDialog.getDouble', return_value=(4.5, True)):
+              window.set_selected_symbol_size()
+          assert abs(removal_layer.renderer().symbol().size() - 4.5) < 0.001
           assert removal_layer.startEditing()
           with patch('gasgis.main.QMessageBox.warning') as warning:
               window.remove_selected_layer()
