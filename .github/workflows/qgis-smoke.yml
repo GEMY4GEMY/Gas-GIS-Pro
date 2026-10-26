@@ -179,6 +179,7 @@ jobs:
                   relative_saved = relative_services = None
               finally:
                   os.chdir(original_cwd)
+          from qgis.PyQt.QtWidgets import QMessageBox
           removal_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'remove_test', 'memory')
           QgsProject.instance().addMapLayer(removal_layer)
           window.refresh_layers()
