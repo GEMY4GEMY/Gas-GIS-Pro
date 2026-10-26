@@ -1,39 +1,110 @@
-"""Gas GIS Pro — Phase 1 desktop GIS shell (requires QGIS Python environment)."""
+"""Gas GIS Pro desktop GIS shell. Requires a working PyQGIS runtime."""
 import sys
 from pathlib import Path
 
 from qgis.core import QgsApplication, QgsProject, QgsVectorLayer
-from qgis.gui import QgsMapCanvas
+from qgis.gui import QgsMapCanvas, QgsMapToolPan, QgsMapToolIdentifyFeature
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import (
+    QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
+    QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
+    QAbstractItemView, QHeaderView
+)
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Gas GIS Pro — Development")
-        self.resize(1280, 800)
+        self.resize(1400, 850)
         self.project = QgsProject.instance()
         self.canvas = QgsMapCanvas()
         self.canvas.setCanvasColor(Qt.white)
         self.setCentralWidget(self.canvas)
-        toolbar = QToolBar("Project")
+        self.pan_tool = QgsMapToolPan(self.canvas)
+        self.canvas.setMapTool(self.pan_tool)
+
+        self.layer_tree = QTreeWidget()
+        self.layer_tree.setHeaderLabels(["Layers"])
+        self.layer_tree.itemChanged.connect(self.set_layer_visibility)
+        self.layer_tree.itemSelectionChanged.connect(self.update_attributes)
+        layer_dock = QDockWidget("Layers", self)
+        layer_dock.setWidget(self.layer_tree)
+        self.addDockWidget(Qt.LeftDockWidgetArea, layer_dock)
+
+        self.attributes = QTableWidget()
+        self.attributes.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.attributes.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        attr_dock = QDockWidget("Attributes (preview: first 500 features)", self)
+        attr_dock.setWidget(self.attributes)
+        self.addDockWidget(Qt.BottomDockWidgetArea, attr_dock)
+
+        toolbar = QToolBar("GIS Tools")
         self.addToolBar(toolbar)
         for title, callback in (
             ("Open layer", self.open_layer),
             ("Open project", self.open_project),
             ("Save project", self.save_project),
+            ("Pan", lambda: self.canvas.setMapTool(self.pan_tool)),
+            ("Zoom in", self.canvas.zoomIn),
+            ("Zoom out", self.canvas.zoomOut),
             ("Zoom full", self.canvas.zoomToFullExtent),
         ):
             toolbar.addAction(title, callback)
+        self.project.layersAdded.connect(lambda _: self.refresh_layers())
+        self.project.layersRemoved.connect(lambda _: self.refresh_layers())
         self.statusBar().showMessage("Development build — not validated for production")
 
     def refresh_layers(self):
         layers = [layer for layer in self.project.mapLayers().values() if layer.isValid()]
-        self.canvas.setLayers(layers)
-        if layers:
-            self.canvas.zoomToFullExtent()
+        previous = self.layer_tree.currentItem()
+        selected_id = previous.data(0, Qt.UserRole) if previous else None
+        self.layer_tree.blockSignals(True)
+        self.layer_tree.clear()
+        for layer in reversed(layers):
+            item = QTreeWidgetItem([layer.name()])
+            item.setData(0, Qt.UserRole, layer.id())
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.Checked)
+            self.layer_tree.addTopLevelItem(item)
+            if layer.id() == selected_id:
+                self.layer_tree.setCurrentItem(item)
+        self.layer_tree.blockSignals(False)
+        self.sync_canvas_layers()
+        self.update_attributes()
+
+    def sync_canvas_layers(self):
+        visible = []
+        for i in range(self.layer_tree.topLevelItemCount()):
+            item = self.layer_tree.topLevelItem(i)
+            layer = self.project.mapLayer(item.data(0, Qt.UserRole))
+            if layer and item.checkState(0) == Qt.Checked:
+                visible.append(layer)
+        self.canvas.setLayers(visible)
         self.canvas.refresh()
+
+    def set_layer_visibility(self, item, column):
+        self.sync_canvas_layers()
+
+    def update_attributes(self):
+        self.attributes.clear()
+        self.attributes.setRowCount(0)
+        self.attributes.setColumnCount(0)
+        item = self.layer_tree.currentItem()
+        if not item:
+            return
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole))
+        if not isinstance(layer, QgsVectorLayer):
+            return
+        fields = [field.name() for field in layer.fields()]
+        self.attributes.setColumnCount(len(fields))
+        self.attributes.setHorizontalHeaderLabels(fields)
+        for row, feature in enumerate(layer.getFeatures()):
+            if row >= 500:
+                break
+            self.attributes.insertRow(row)
+            for col, value in enumerate(feature.attributes()):
+                self.attributes.setItem(row, col, QTableWidgetItem(str(value)))
 
     def open_layer(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -47,7 +118,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Import failed", "Unable to load the layer.")
             return
         self.project.addMapLayer(layer)
-        self.refresh_layers()
+        self.canvas.zoomToFullExtent()
 
     def open_project(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -55,6 +126,7 @@ class MainWindow(QMainWindow):
         )
         if path and self.project.read(path):
             self.refresh_layers()
+            self.canvas.zoomToFullExtent()
         elif path:
             QMessageBox.warning(self, "Open failed", "Could not load project.")
 
