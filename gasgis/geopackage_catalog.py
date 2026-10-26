@@ -16,7 +16,7 @@ def geopackage_vector_tables(path):
             names = [
                 row[0] for row in db.execute(
                     "SELECT table_name FROM gpkg_contents "
-                    "WHERE data_type IN ('features', 'attributes') ORDER BY table_name"
+                    "WHERE data_type = 'features' ORDER BY table_name"
                 )
             ]
     except sqlite3.DatabaseError as exc:
