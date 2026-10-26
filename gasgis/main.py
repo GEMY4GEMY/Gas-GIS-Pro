@@ -3,12 +3,14 @@ import sys
 from pathlib import Path
 
 from qgis.core import QgsApplication, QgsProject, QgsVectorLayer
-from qgis.gui import QgsMapCanvas, QgsMapToolPan, QgsMapToolIdentifyFeature
+from qgis.gui import QgsMapCanvas, QgsMapToolPan
 from qgis.PyQt.QtCore import Qt
+from gasgis.project_validation import validate_vector_path
+from gasgis.asset_layers import create_asset_layer, SCHEMAS
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QHeaderView
+    QAbstractItemView, QHeaderView, QInputDialog
 )
 
 
@@ -43,6 +45,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
         for title, callback in (
             ("Open layer", self.open_layer),
+            ("New gas layer", self.new_gas_layer),
             ("Open project", self.open_project),
             ("Save project", self.save_project),
             ("Pan", lambda: self.canvas.setMapTool(self.pan_tool)),
@@ -113,12 +116,40 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        errors = validate_vector_path(path)
+        if errors:
+            QMessageBox.warning(self, "Input check failed", ", ".join(errors))
+            return
         layer = QgsVectorLayer(path, Path(path).stem, "ogr")
         if not layer.isValid():
             QMessageBox.warning(self, "Import failed", "Unable to load the layer.")
             return
         self.project.addMapLayer(layer)
         self.canvas.zoomToFullExtent()
+
+    def new_gas_layer(self):
+        layer_name, ok = QInputDialog.getItem(
+            self, "Gas asset layer", "Asset type:", list(SCHEMAS), 0, False
+        )
+        if not ok:
+            return
+        crs, ok = QInputDialog.getText(
+            self, "Projected CRS", "EPSG code (e.g. EPSG:32636):"
+        )
+        if not ok:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "New gas GeoPackage", "", "GeoPackage (*.gpkg)"
+        )
+        if not path:
+            return
+        try:
+            layer = create_asset_layer(path, layer_name, crs.strip())
+        except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Create layer failed", str(exc))
+            return
+        self.project.addMapLayer(layer)
+        self.statusBar().showMessage(f"Created {layer_name} in {path}", 10000)
 
     def open_project(self):
         path, _ = QFileDialog.getOpenFileName(
