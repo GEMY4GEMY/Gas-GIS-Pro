@@ -92,6 +92,10 @@ jobs:
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
           assert window.active_edit_layers() == ['editing_test']
+          from unittest.mock import patch
+          with patch('gasgis.main.QMessageBox.warning') as warning:
+              assert not window.confirm_close()
+              warning.assert_called_once()
           assert test_layer.rollBack()
           assert window.active_edit_layers() == []
           assert window.confirm_close()
