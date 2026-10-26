@@ -67,6 +67,10 @@ jobs:
           QgsProject.instance().addMapLayer(layer)
           window.refresh_layers()
           assert window.layer_tree.topLevelItemCount() >= 1
+          window.zoom_to_selected_layer()
+          assert 'Select a layer first' in window.statusBar().currentMessage()
+          window.layer_tree.setCurrentItem(window.layer_tree.topLevelItem(0))
+          window.zoom_to_selected_layer()
           from qgis.PyQt.QtCore import Qt
           item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
           item.setCheckState(0, Qt.Unchecked)
