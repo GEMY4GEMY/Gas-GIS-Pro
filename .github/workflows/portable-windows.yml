@@ -19,8 +19,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist/Gas-GIS-Pro-Prototype | Out-Null
           Copy-Item -Recurse gasgis dist/Gas-GIS-Pro-Prototype/
-          Copy-Item README.md,pyproject.toml dist/Gas-GIS-Pro-Prototype/
+          Copy-Item README.md,pyproject.toml,run-with-osgeo4w.cmd dist/Gas-GIS-Pro-Prototype/
           Set-Content -Path dist/Gas-GIS-Pro-Prototype/NOT_PORTABLE_YET.txt -Value 'Prototype source package. Requires a compatible QGIS Python environment. This is not a portable EXE.'
+      - name: Verify development launcher and source layout
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/run-with-osgeo4w.cmd')) { throw 'Launcher missing' }
+          if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/gasgis/main.py')) { throw 'Entry point missing' }
+          if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/NOT_PORTABLE_YET.txt')) { throw 'Prototype warning missing' }
       - uses: actions/upload-artifact@v4
         with:
           name: Gas-GIS-Pro-Source-Prototype
