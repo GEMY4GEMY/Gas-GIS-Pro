@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlite3
 
 from qgis.core import (
-    QgsCoordinateReferenceSystem, QgsField, QgsFields,
+    QgsCoordinateReferenceSystem, QgsField,
     QgsVectorFileWriter, QgsWkbTypes, QgsProject, QgsVectorLayer,
 )
 from qgis.PyQt.QtCore import QVariant
@@ -64,7 +64,10 @@ def append_asset_layer(gpkg_path, layer_name, crs_authid):
     if not crs.isValid() or crs.isGeographic():
         raise ValueError('A valid projected CRS is required')
     try:
-        with sqlite3.connect(f'file:{path.resolve().as_posix()}?mode=ro', uri=True) as db:
+        with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+            header = db.execute('PRAGMA application_id').fetchone()[0]
+            if header != 0x47504B47:
+                raise ValueError('File is not a GeoPackage')
             tables = {row[0].casefold() for row in db.execute('SELECT table_name FROM gpkg_contents')}
             if layer_name.casefold() in tables:
                 raise FileExistsError(f'GeoPackage already contains {layer_name}')
