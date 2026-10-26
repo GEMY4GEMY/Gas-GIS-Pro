@@ -289,7 +289,26 @@ class MainWindow(QMainWindow):
             pipes = self.selected_vector_layer()
             parts = line_parts(pipes)
             segments = line_segments(pipes)
-            findings = audit_network(parts, segments)
+            nodes = []
+            point_layers = [
+                layer for layer in self.project.mapLayers().values()
+                if isinstance(layer, QgsVectorLayer)
+                and layer.isValid()
+                and layer.geometryType() == QgsWkbTypes.PointGeometry
+                and layer.crs() == pipes.crs()
+            ]
+            if point_layers:
+                choices = ["None (pipes only)"] + [
+                    f"{layer.name()} [{layer.id()}]" for layer in point_layers
+                ]
+                chosen, ok = QInputDialog.getItem(
+                    self, "Unified audit", "Valve/riser layer:", choices, 0, False
+                )
+                if not ok:
+                    return
+                if chosen != choices[0]:
+                    nodes = point_nodes(point_layers[choices.index(chosen) - 1], pipes.crs())
+            findings = audit_network(parts, segments, nodes)
             path, _ = QFileDialog.getSaveFileName(
                 self, 'Save unified audit report', '', 'CSV (*.csv)'
             )
