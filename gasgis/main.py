@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
             ("Open layer", self.open_layer),
             ("New gas layer", self.new_gas_layer),
             ("Zoom to layer", self.zoom_to_selected_layer),
+            ("Remove layer", self.remove_selected_layer),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -225,6 +226,31 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def remove_selected_layer(self):
+        """Remove a map layer from the project, never its source dataset."""
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if layer is None:
+            self.statusBar().showMessage("Select a layer first.", 5000)
+            return
+        if isinstance(layer, QgsVectorLayer) and layer.isEditable():
+            QMessageBox.warning(
+                self, "Unsaved edits",
+                "Save or discard edits before removing this layer."
+            )
+            return
+        answer = QMessageBox.question(
+            self, "Remove layer",
+            f"Remove '{layer.name()}' from the current project?\n"
+            "The source file will not be deleted.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.project.removeMapLayer(layer.id())
+        self.statusBar().showMessage("Layer removed from project; source file preserved.", 5000)
 
     def new_gas_layer(self):
         layer_name, ok = QInputDialog.getItem(
