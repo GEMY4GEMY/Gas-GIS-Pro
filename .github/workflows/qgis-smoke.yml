@@ -83,12 +83,26 @@ jobs:
               assert window.layer_tree.topLevelItemCount() >= 1
               project.clear()
               window.refresh_layers()
-          from gasgis.asset_layers import create_asset_layer
+          from gasgis.asset_layers import create_asset_layer, append_asset_layer
           with tempfile.TemporaryDirectory() as tmp:
               gpkg = Path(tmp) / 'gas.gpkg'
               saved = create_asset_layer(gpkg, 'gas_mains', 'EPSG:32636')
               assert gpkg.is_file() and saved.isValid()
-              saved = None
+              services = append_asset_layer(gpkg, 'gas_services', 'EPSG:32636')
+              valves = append_asset_layer(gpkg, 'gas_valves', 'EPSG:32636')
+              risers = append_asset_layer(gpkg, 'gas_risers', 'EPSG:32636')
+              assert all(layer.isValid() for layer in (services, valves, risers))
+              try:
+                  append_asset_layer(gpkg, 'gas_mains', 'EPSG:32636')
+              except FileExistsError:
+                  pass
+              else:
+                  raise AssertionError('Duplicate gas asset layer must be rejected')
+              import sqlite3
+              with sqlite3.connect(gpkg) as db:
+                  names = {row[0] for row in db.execute('SELECT table_name FROM gpkg_contents')}
+              assert {'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'} <= names
+              saved = services = valves = risers = None
           test_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'editing_test', 'memory')
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
