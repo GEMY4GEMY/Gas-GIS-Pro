@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
         for title, callback in (
             ("Open layer", self.open_layer),
             ("New gas layer", self.new_gas_layer),
+            ("Zoom to layer", self.zoom_to_selected_layer),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -210,6 +211,19 @@ class MainWindow(QMainWindow):
                 return
             self.project.addMapLayer(layer)
         self.canvas.zoomToFullExtent()
+
+    def zoom_to_selected_layer(self):
+        """Zoom the map to the selected layer without changing visibility."""
+        layer = self.selected_layer()
+        if layer is None:
+            self.statusBar().showMessage("Select a layer first.", 5000)
+            return
+        extent = layer.extent()
+        if extent.isNull() or extent.isEmpty():
+            self.statusBar().showMessage("Selected layer has no spatial extent.", 5000)
+            return
+        self.canvas.setExtent(extent)
+        self.canvas.refresh()
 
     def new_gas_layer(self):
         layer_name, ok = QInputDialog.getItem(
