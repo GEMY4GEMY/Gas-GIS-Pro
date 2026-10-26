@@ -199,6 +199,10 @@ jobs:
               window.rename_selected_layer()
               invalid_name_warning.assert_called_once()
           assert removal_layer.name() == 'Renamed gas layer'
+          from qgis.PyQt.QtGui import QColor
+          with patch('gasgis.main.QColorDialog.getColor', return_value=QColor('#1769aa')):
+              window.set_selected_layer_color()
+          assert removal_layer.renderer().symbol().color().name() == '#1769aa'
           assert removal_layer.startEditing()
           with patch('gasgis.main.QMessageBox.warning') as warning:
               window.remove_selected_layer()
