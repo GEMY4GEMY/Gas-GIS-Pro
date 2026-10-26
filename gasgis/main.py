@@ -65,6 +65,7 @@ class MainWindow(QMainWindow):
             ("Remove layer", self.remove_selected_layer),
             ("Rename layer", self.rename_selected_layer),
             ("Layer color", self.set_selected_layer_color),
+            ("Symbol size", self.set_selected_symbol_size),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -228,6 +229,41 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def set_selected_symbol_size(self):
+        """Set point marker size or line width in millimeters (project style)."""
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if not isinstance(layer, QgsVectorLayer) or not layer.isValid():
+            self.statusBar().showMessage("Select a vector layer first.", 5000)
+            return
+        geometry_type = layer.geometryType()
+        if geometry_type not in (QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry):
+            QMessageBox.information(
+                self, "Symbol size", "Only point and line layers are supported."
+            )
+            return
+        renderer = layer.renderer()
+        symbol = renderer.symbol() if renderer is not None else None
+        if symbol is None:
+            QMessageBox.warning(self, "Symbol size", "This layer has no editable single symbol.")
+            return
+        is_line = geometry_type == QgsWkbTypes.LineGeometry
+        current = symbol.width() if is_line else symbol.size()
+        size, ok = QInputDialog.getDouble(
+            self, "Symbol size",
+            "Line width (mm):" if is_line else "Marker size (mm):",
+            current, 0.1, 20.0, 2
+        )
+        if not ok:
+            return
+        if is_line:
+            symbol.setWidth(size)
+        else:
+            symbol.setSize(size)
+        layer.triggerRepaint()
+        self.canvas.refresh()
+        self.statusBar().showMessage("Symbol size updated; save project to keep it.", 5000)
 
     def set_selected_layer_color(self):
         """Change the map symbol color of a vector layer (project styling only)."""
