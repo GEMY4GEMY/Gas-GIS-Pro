@@ -41,7 +41,14 @@ jobs:
           assert len(audit_network(line_parts(layer), line_segments(layer))) == 2
           from gasgis.main import MainWindow
           window = MainWindow()
-          assert window.windowTitle().startswith("Gas GIS Pro")
+          assert window.windowTitle().startswith('Gas GIS Pro')
+          from qgis.core import QgsProject
+          QgsProject.instance().addMapLayer(layer)
+          window.refresh_layers()
+          assert window.layer_tree.topLevelItemCount() >= 1
+          item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, 32) == layer.id())
+          item.setCheckState(0, 0)
+          assert not QgsProject.instance().layerTreeRoot().findLayer(layer.id()).itemVisibilityChecked()
           window.close()
           del window
           app.exitQgis()
