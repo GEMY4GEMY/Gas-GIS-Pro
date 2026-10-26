@@ -6,7 +6,7 @@ from qgis.core import QgsApplication, QgsProject, QgsVectorLayer
 from qgis.gui import QgsMapCanvas, QgsMapToolPan
 from qgis.PyQt.QtCore import Qt
 from gasgis.project_validation import validate_vector_path
-from gasgis.asset_layers import create_asset_layer, SCHEMAS
+from gasgis.asset_layers import create_asset_layer, append_asset_layer, SCHEMAS
 from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
 from gasgis.network_audit import disconnected_endpoints
@@ -178,13 +178,30 @@ class MainWindow(QMainWindow):
         )
         if not ok:
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "New gas GeoPackage", "", "GeoPackage (*.gpkg)"
+        mode, ok = QInputDialog.getItem(
+            self, "GeoPackage destination", "Destination:",
+            ["Create new GeoPackage", "Add to existing GeoPackage"], 0, False
         )
+        if not ok:
+            return
+        append = mode == "Add to existing GeoPackage"
+        if append:
+            path, _ = QFileDialog.getOpenFileName(
+                self, "Select existing GeoPackage", "", "GeoPackage (*.gpkg)"
+            )
+        else:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "New gas GeoPackage", "", "GeoPackage (*.gpkg)"
+            )
         if not path:
             return
+        if not append and not path.lower().endswith(".gpkg"):
+            path += ".gpkg"
         try:
-            layer = create_asset_layer(path, layer_name, crs.strip())
+            if append:
+                layer = append_asset_layer(path, layer_name, crs.strip())
+            else:
+                layer = create_asset_layer(path, layer_name, crs.strip())
         except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as exc:
             QMessageBox.warning(self, "Create layer failed", str(exc))
             return
