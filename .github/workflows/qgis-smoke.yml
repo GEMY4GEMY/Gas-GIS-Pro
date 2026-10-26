@@ -190,6 +190,15 @@ jobs:
               if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == removal_layer.id()
           )
           window.layer_tree.setCurrentItem(removal_item)
+          with patch('gasgis.main.QInputDialog.getText', return_value=('Renamed gas layer', True)):
+              window.rename_selected_layer()
+          assert removal_layer.name() == 'Renamed gas layer'
+          with patch('gasgis.main.QInputDialog.getText', return_value=('  ', True)), patch(
+              'gasgis.main.QMessageBox.warning'
+          ) as invalid_name_warning:
+              window.rename_selected_layer()
+              invalid_name_warning.assert_called_once()
+          assert removal_layer.name() == 'Renamed gas layer'
           assert removal_layer.startEditing()
           with patch('gasgis.main.QMessageBox.warning') as warning:
               window.remove_selected_layer()
