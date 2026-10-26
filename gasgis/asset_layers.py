@@ -4,6 +4,7 @@ Requires an initialized QgsApplication. Geometry is stored in a projected CRS
 selected by the operator; the layer does not imply engineering approval.
 """
 from pathlib import Path
+import sqlite3
 
 from qgis.core import (
     QgsCoordinateReferenceSystem, QgsField, QgsFields,
@@ -49,6 +50,34 @@ def create_asset_layer(gpkg_path, layer_name, crs_authid):
         raise ValueError("A valid projected CRS is required")
     if not path.parent.is_dir():
         raise FileNotFoundError("Output directory does not exist")
+    return _write_asset_layer(path, layer_name, crs, append=False)
+
+
+def append_asset_layer(gpkg_path, layer_name, crs_authid):
+    """Append a new gas asset table without overwriting existing GeoPackage tables."""
+    path = Path(gpkg_path)
+    if path.suffix.lower() != '.gpkg' or not path.is_file():
+        raise ValueError('Select an existing .gpkg file')
+    if layer_name not in SCHEMAS:
+        raise ValueError('Unsupported asset layer type')
+    crs = QgsCoordinateReferenceSystem(crs_authid)
+    if not crs.isValid() or crs.isGeographic():
+        raise ValueError('A valid projected CRS is required')
+    try:
+        with sqlite3.connect(f'file:{path.resolve().as_posix()}?mode=ro', uri=True) as db:
+            tables = {row[0].casefold() for row in db.execute('SELECT table_name FROM gpkg_contents')}
+            if layer_name.casefold() in tables:
+                raise FileExistsError(f'GeoPackage already contains {layer_name}')
+            # Also reject an existing SQLite table not registered in gpkg_contents.
+            existing = db.execute('SELECT 1 FROM sqlite_master WHERE lower(name)=lower(?)', (layer_name,)).fetchone()
+            if existing:
+                raise FileExistsError(f'GeoPackage already contains {layer_name}')
+    except sqlite3.DatabaseError as exc:
+        raise ValueError('File is not a readable GeoPackage') from exc
+    return _write_asset_layer(path, layer_name, crs, append=True)
+
+
+def _write_asset_layer(path, layer_name, crs, append):
     geometry, columns = SCHEMAS[layer_name]
     geom_name = "LineString" if geometry == QgsWkbTypes.LineString else "Point"
     layer = QgsVectorLayer(f"{geom_name}?crs={crs.authid()}", layer_name, "memory")
@@ -59,6 +88,8 @@ def create_asset_layer(gpkg_path, layer_name, crs_authid):
     options = QgsVectorFileWriter.SaveVectorOptions()
     options.driverName = "GPKG"
     options.layerName = layer_name
+    if append:
+        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
     result = QgsVectorFileWriter.writeAsVectorFormatV3(
         layer, str(path), QgsProject.instance().transformContext(), options
     )
