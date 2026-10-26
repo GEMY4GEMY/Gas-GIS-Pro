@@ -121,6 +121,18 @@ jobs:
                   names = {row[0] for row in db.execute('SELECT table_name FROM gpkg_contents')}
               assert {'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'} <= names
               saved = services = valves = risers = None
+              relative_name = 'relative_gas.gpkg'
+              import os
+              original_cwd = os.getcwd()
+              try:
+                  os.chdir(tmp)
+                  relative_saved = create_asset_layer(relative_name, 'gas_mains', 'EPSG:32636')
+                  assert relative_saved.isValid()
+                  relative_services = append_asset_layer(relative_name, 'gas_services', 'EPSG:32636')
+                  assert relative_services.isValid()
+                  relative_saved = relative_services = None
+              finally:
+                  os.chdir(original_cwd)
           test_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'editing_test', 'memory')
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
