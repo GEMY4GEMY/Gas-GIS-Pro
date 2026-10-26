@@ -214,8 +214,9 @@ class MainWindow(QMainWindow):
 
     def zoom_to_selected_layer(self):
         """Zoom the map to the selected layer without changing visibility."""
-        layer = self.selected_layer()
-        if layer is None:
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if layer is None or not layer.isValid():
             self.statusBar().showMessage("Select a layer first.", 5000)
             return
         extent = layer.extent()
