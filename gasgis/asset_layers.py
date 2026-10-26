@@ -64,7 +64,7 @@ def append_asset_layer(gpkg_path, layer_name, crs_authid):
     if not crs.isValid() or crs.isGeographic():
         raise ValueError('A valid projected CRS is required')
     try:
-        with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+        with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True) as db:
             header = db.execute('PRAGMA application_id').fetchone()[0]
             if header != 0x47504B47:
                 raise ValueError('File is not a GeoPackage')
