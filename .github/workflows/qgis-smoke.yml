@@ -121,6 +121,12 @@ jobs:
                   names = {row[0] for row in db.execute('SELECT table_name FROM gpkg_contents')}
               assert {'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'} <= names
               saved = services = valves = risers = None
+              try:
+                  create_asset_layer(Path(tmp) / 'feet.gpkg', 'gas_mains', 'EPSG:2263')
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError('Feet-based CRS must be rejected')
               fake = Path(tmp) / 'not_a_gpkg.gpkg'
               with sqlite3.connect(fake) as db:
                   db.execute('CREATE TABLE dummy (id INTEGER)')
