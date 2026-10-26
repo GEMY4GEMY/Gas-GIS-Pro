@@ -44,6 +44,7 @@ jobs:
           from gasgis.main import MainWindow
           window = MainWindow()
           assert window.windowTitle().startswith('Gas GIS Pro')
+          assert window.layer_tree.topLevelItemCount() == 0
           from qgis.core import QgsProject
           QgsProject.instance().addMapLayer(layer)
           window.refresh_layers()
