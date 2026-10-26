@@ -503,9 +503,9 @@ def main():
     window = MainWindow()
     window.show()
     result = app.exec_()
-    window.close()
+    # Qt invokes closeEvent when the user closes the window.
+    # Do not force another close here: unsaved edits may have blocked it.
     del window
-    # Avoid destroying QGIS singleton resources while Qt objects may survive.
     return result
 
 
