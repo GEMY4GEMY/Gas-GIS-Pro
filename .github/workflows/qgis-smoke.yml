@@ -59,6 +59,6 @@ jobs:
               assert gpkg.is_file() and saved.isValid()
           window.close()
           del window
-          app.exitQgis()
           print("QGIS desktop smoke test passed")
+          # Process exit releases Qt/QGIS after the Python objects are gone.
           PY
