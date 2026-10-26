@@ -457,10 +457,7 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def open_project(self):
-        editable = [
-            layer.name() for layer in self.project.mapLayers().values()
-            if isinstance(layer, QgsVectorLayer) and layer.isEditable()
-        ]
+        editable = self.active_edit_layers()
         if editable:
             QMessageBox.warning(
                 self, "Unsaved edits",
@@ -479,10 +476,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Open failed", "Could not load project.")
 
     def save_project(self):
-        editable = [
-            layer.name() for layer in self.project.mapLayers().values()
-            if isinstance(layer, QgsVectorLayer) and layer.isEditable()
-        ]
+        editable = self.active_edit_layers()
         if editable:
             QMessageBox.warning(
                 self, "Unsaved edits",
