@@ -88,6 +88,7 @@ jobs:
               gpkg = Path(tmp) / 'gas.gpkg'
               saved = create_asset_layer(gpkg, 'gas_mains', 'EPSG:32636')
               assert gpkg.is_file() and saved.isValid()
+              saved = None
           test_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'editing_test', 'memory')
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
