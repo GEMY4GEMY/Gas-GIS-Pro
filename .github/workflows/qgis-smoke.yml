@@ -1,0 +1,38 @@
+name: QGIS runtime smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'gasgis/**'
+      - 'tests/**'
+      - '.github/workflows/qgis-smoke.yml'
+jobs:
+  qgis-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install distribution PyQGIS and headless display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-qgis python3-pyqt5 xvfb
+      - name: Compile sources using system Python
+        run: /usr/bin/python3 -m compileall -q gasgis
+      - name: Import PyQGIS modules and instantiate desktop window
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: .
+        run: |
+          xvfb-run -a /usr/bin/python3 - <<'PY'
+          from qgis.core import QgsApplication
+          app = QgsApplication([], True)
+          app.initQgis()
+          from gasgis.main import MainWindow
+          window = MainWindow()
+          assert window.windowTitle().startswith("Gas GIS Pro")
+          window.close()
+          del window
+          app.exitQgis()
+          print("QGIS desktop smoke test passed")
+          PY
