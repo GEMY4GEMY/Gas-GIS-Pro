@@ -45,6 +45,25 @@ jobs:
           window = MainWindow()
           assert window.windowTitle().startswith('Gas GIS Pro')
           assert window.layer_tree.topLevelItemCount() == 0
+          from unittest.mock import patch
+          from qgis.PyQt.QtWidgets import QInputDialog, QFileDialog
+          with tempfile.TemporaryDirectory() as tmp:
+              ui_gpkg = Path(tmp) / 'ui_layers.gpkg'
+              with patch.object(QInputDialog, 'getItem', side_effect=[
+                  ('gas_mains', True), ('Create new GeoPackage', True),
+                  ('gas_services', True), ('Add to existing GeoPackage', True)
+              ]), patch.object(QInputDialog, 'getText', side_effect=[
+                  ('EPSG:32636', True), ('EPSG:32636', True)
+              ]), patch.object(QFileDialog, 'getSaveFileName', return_value=(str(ui_gpkg), '')), patch.object(
+                  QFileDialog, 'getOpenFileName', return_value=(str(ui_gpkg), '')
+              ):
+                  window.new_gas_layer()
+                  window.new_gas_layer()
+              assert len(QgsProject.instance().mapLayersByName('gas_mains')) == 1
+              assert len(QgsProject.instance().mapLayersByName('gas_services')) == 1
+              QgsProject.instance().clear()
+              window.refresh_layers()
+
           from qgis.core import QgsProject
           QgsProject.instance().addMapLayer(layer)
           window.refresh_layers()
@@ -107,7 +126,7 @@ jobs:
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
           assert window.active_edit_layers() == ['editing_test']
-          from unittest.mock import patch, Mock
+          from unittest.mock import Mock
           with patch('gasgis.main.QMessageBox.warning') as warning:
               assert not window.confirm_close()
               blocked_event = Mock()
