@@ -3,6 +3,9 @@ setlocal
 rem Run from an existing OSGeo4W/QGIS installation. Not a portable launcher.
 set "ROOT=%~dp0"
 if not defined OSGEO4W_ROOT (
+  if exist "C:\\OSGeo4W\\bin\\o4w_env.bat" set "OSGEO4W_ROOT=C:\\OSGeo4W"
+)
+if not defined OSGEO4W_ROOT (
   echo OSGEO4W_ROOT is not set. Open the OSGeo4W Shell first.
   exit /b 2
 )
