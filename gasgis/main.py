@@ -10,6 +10,7 @@ from gasgis.asset_layers import create_asset_layer, SCHEMAS
 from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
 from gasgis.network_audit import disconnected_endpoints
+from gasgis.audit_export import export_audit_csv
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
 from qgis.core import QgsSnappingConfig, QgsWkbTypes
@@ -257,6 +258,13 @@ class MainWindow(QMainWindow):
                 ))
                 feature.setAttributes([finding["asset"], finding["end"]])
                 features.append(feature)
+            report_path, _ = QFileDialog.getSaveFileName(
+                self, 'Save audit CSV (optional)', '', 'CSV (*.csv)'
+            )
+            if report_path:
+                if not report_path.lower().endswith('.csv'):
+                    report_path += '.csv'
+                export_audit_csv(findings, report_path)
             markers.dataProvider().addFeatures(features)
             markers.updateExtents()
             self.project.addMapLayer(markers)
