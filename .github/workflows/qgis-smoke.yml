@@ -141,6 +141,11 @@ jobs:
                   window.open_layer()
               assert len(QgsProject.instance().mapLayers()) == 4
               assert window.layer_tree.topLevelItemCount() == 4
+              with patch.object(QFileDialog, 'getOpenFileName', return_value=(str(gpkg), '')), patch.object(
+                  QInputDialog, 'getItem', return_value=('All layers', True)
+              ):
+                  window.open_layer()
+              assert len(QgsProject.instance().mapLayers()) == 4, 'Reopening must not duplicate layers'
               QgsProject.instance().clear()
               window.refresh_layers()
               try:
