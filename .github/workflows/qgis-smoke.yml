@@ -30,7 +30,7 @@ jobs:
           from qgis.core import QgsApplication
           app = QgsApplication([], True)
           app.initQgis()
-          from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY
+          from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY, QgsProject
           from gasgis.geometry_adapter import line_parts, line_segments
           from gasgis.unified_audit import audit_network
           layer = QgsVectorLayer('LineString?crs=EPSG:32636', 'pipes', 'memory')
@@ -64,7 +64,6 @@ jobs:
               QgsProject.instance().clear()
               window.refresh_layers()
 
-          from qgis.core import QgsProject
           QgsProject.instance().addMapLayer(layer)
           window.refresh_layers()
           assert window.layer_tree.topLevelItemCount() >= 1
