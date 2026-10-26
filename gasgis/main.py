@@ -434,6 +434,17 @@ class MainWindow(QMainWindow):
             self.run_edit_action(rollback_edits)
 
     def open_project(self):
+        editable = [
+            layer.name() for layer in self.project.mapLayers().values()
+            if isinstance(layer, QgsVectorLayer) and layer.isEditable()
+        ]
+        if editable:
+            QMessageBox.warning(
+                self, "Unsaved edits",
+                "Save or discard active layer edits before opening another project: "
+                + ", ".join(editable)
+            )
+            return
         path, _ = QFileDialog.getOpenFileName(
             self, "Open QGIS project", "", "QGIS projects (*.qgz *.qgs)"
         )
@@ -445,6 +456,17 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Open failed", "Could not load project.")
 
     def save_project(self):
+        editable = [
+            layer.name() for layer in self.project.mapLayers().values()
+            if isinstance(layer, QgsVectorLayer) and layer.isEditable()
+        ]
+        if editable:
+            QMessageBox.warning(
+                self, "Unsaved edits",
+                "Save or discard active layer edits before saving the project: "
+                + ", ".join(editable)
+            )
+            return
         path = self.project.fileName()
         if not path:
             path, _ = QFileDialog.getSaveFileName(
