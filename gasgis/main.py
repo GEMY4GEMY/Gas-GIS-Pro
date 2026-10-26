@@ -11,6 +11,8 @@ from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
 from gasgis.network_audit import disconnected_endpoints
 from gasgis.audit_export import export_audit_csv
+from gasgis.geometry_adapter import line_segments
+from gasgis.crossings import crossing_candidates
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
 from qgis.core import QgsSnappingConfig, QgsWkbTypes
@@ -57,6 +59,7 @@ class MainWindow(QMainWindow):
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
+            ("Audit crossings", self.audit_crossings),
             ("Undo", self.undo_selected_edit),
             ("Redo", self.redo_selected_edit),
             ("Save edits", self.save_selected_edit),
@@ -275,6 +278,40 @@ class MainWindow(QMainWindow):
             )
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, "Network audit", str(exc))
+
+    def audit_crossings(self):
+        try:
+            layer = self.selected_vector_layer()
+            findings = crossing_candidates(line_segments(layer))
+            if not findings:
+                QMessageBox.information(self, "Crossing audit", "No interior crossings detected.")
+                return
+            markers = QgsVectorLayer(
+                "Point?crs=" + layer.crs().authid(), "AUDIT - crossing candidates", "memory"
+            )
+            markers.dataProvider().addAttributes([
+                QgsField("first", QVariant.String),
+                QgsField("second", QVariant.String),
+            ])
+            markers.updateFields()
+            features = []
+            for item in findings:
+                feature = QgsFeature(markers.fields())
+                feature.setGeometry(QgsGeometry.fromPointXY(
+                    QgsPointXY(item["x"], item["y"])
+                ))
+                feature.setAttributes([item["first"], item["second"]])
+                features.append(feature)
+            markers.dataProvider().addFeatures(features)
+            markers.updateExtents()
+            self.project.addMapLayer(markers)
+            self.canvas.zoomToFullExtent()
+            QMessageBox.information(
+                self, "Crossing audit",
+                f"{len(findings)} possible crossings added to the map. Review manually."
+            )
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Crossing audit", str(exc))
 
     def start_selected_edit(self):
         self.run_edit_action(start_editing)
