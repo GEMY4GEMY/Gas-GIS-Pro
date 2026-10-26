@@ -25,6 +25,8 @@ jobs:
           PYTHONPATH: .
         run: |
           xvfb-run -a /usr/bin/python3 - <<'PY'
+          import tempfile
+          from pathlib import Path
           from qgis.core import QgsApplication
           app = QgsApplication([], True)
           app.initQgis()
@@ -62,8 +64,6 @@ jobs:
               window.layer_visibility.clear()
               window.refresh_layers()
               assert window.layer_tree.topLevelItemCount() >= 1
-          import tempfile
-          from pathlib import Path
           from gasgis.asset_layers import create_asset_layer
           with tempfile.TemporaryDirectory() as tmp:
               gpkg = Path(tmp) / 'gas.gpkg'
