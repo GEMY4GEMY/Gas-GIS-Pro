@@ -19,11 +19,11 @@ from gasgis.node_adapter import point_nodes
 from gasgis.node_connectivity import match_nodes
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
-from qgis.core import QgsSnappingConfig, QgsWkbTypes
+from qgis.core import QgsSnappingConfig, QgsWkbTypes, QgsLineSymbol, QgsMarkerSymbol
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QHeaderView, QInputDialog
+    QAbstractItemView, QHeaderView, QInputDialog, QColorDialog
 )
 
 
@@ -64,6 +64,7 @@ class MainWindow(QMainWindow):
             ("Zoom to layer", self.zoom_to_selected_layer),
             ("Remove layer", self.remove_selected_layer),
             ("Rename layer", self.rename_selected_layer),
+            ("Layer color", self.set_selected_layer_color),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -227,6 +228,32 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def set_selected_layer_color(self):
+        """Change the map symbol color of a vector layer (project styling only)."""
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if not isinstance(layer, QgsVectorLayer) or not layer.isValid():
+            self.statusBar().showMessage("Select a vector layer first.", 5000)
+            return
+        geometry_type = layer.geometryType()
+        if geometry_type not in (QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry):
+            QMessageBox.information(
+                self, "Layer color", "Currently supported for point and line layers."
+            )
+            return
+        color = QColorDialog.getColor(parent=self, title="Choose layer color")
+        if not color.isValid():
+            return
+        symbol = (
+            QgsLineSymbol.createSimple({"line_color": color.name()})
+            if geometry_type == QgsWkbTypes.LineGeometry
+            else QgsMarkerSymbol.createSimple({"color": color.name()})
+        )
+        layer.renderer().setSymbol(symbol)
+        layer.triggerRepaint()
+        self.canvas.refresh()
+        self.statusBar().showMessage("Layer color updated; save project to keep it.", 5000)
 
     def rename_selected_layer(self):
         """Rename the selected map layer display name, without renaming its data source."""
