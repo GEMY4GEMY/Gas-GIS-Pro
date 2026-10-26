@@ -50,6 +50,18 @@ jobs:
           item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
           item.setCheckState(0, Qt.Unchecked)
           assert not QgsProject.instance().layerTreeRoot().findLayer(layer.id()).itemVisibilityChecked()
+          with tempfile.TemporaryDirectory() as tmp:
+              project_file = Path(tmp) / 'visibility.qgz'
+              project = QgsProject.instance()
+              project.setFileName(str(project_file))
+              assert project.write()
+              assert project.read(str(project_file))
+              restored = project.mapLayersByName('pipes')
+              assert len(restored) == 1
+              assert not project.layerTreeRoot().findLayer(restored[0].id()).itemVisibilityChecked()
+              window.layer_visibility.clear()
+              window.refresh_layers()
+              assert window.layer_tree.topLevelItemCount() >= 1
           import tempfile
           from pathlib import Path
           from gasgis.asset_layers import create_asset_layer
