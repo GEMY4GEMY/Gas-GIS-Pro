@@ -11,7 +11,8 @@ from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
 from gasgis.network_audit import disconnected_endpoints
 from gasgis.audit_export import export_audit_csv
-from gasgis.geometry_adapter import line_segments
+from gasgis.geometry_adapter import line_segments, line_parts
+from gasgis.unified_audit import audit_network
 from gasgis.crossings import crossing_candidates
 from gasgis.node_adapter import point_nodes
 from gasgis.node_connectivity import match_nodes
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow):
             ("Audit pipe ends", self.audit_selected_layer),
             ("Audit crossings", self.audit_crossings),
             ("Audit valve/riser proximity", self.audit_nodes),
+            ("Unified audit CSV", self.unified_audit_csv),
             ("Undo", self.undo_selected_edit),
             ("Redo", self.redo_selected_edit),
             ("Save edits", self.save_selected_edit),
@@ -282,6 +284,32 @@ class MainWindow(QMainWindow):
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, "Network audit", str(exc))
 
+    def unified_audit_csv(self):
+        try:
+            pipes = self.selected_vector_layer()
+            parts = line_parts(pipes)
+            segments = line_segments(pipes)
+            findings = audit_network(parts, segments)
+            path, _ = QFileDialog.getSaveFileName(
+                self, 'Save unified audit report', '', 'CSV (*.csv)'
+            )
+            if not path:
+                return
+            if not path.lower().endswith('.csv'):
+                path += '.csv'
+            import csv
+            with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
+                writer = csv.DictWriter(
+                    handle, fieldnames=['issue', 'asset', 'related', 'x', 'y']
+                )
+                writer.writeheader()
+                writer.writerows(findings)
+            QMessageBox.information(
+                self, 'Unified audit',
+                f'Exported {len(findings)} review findings. This is geometry QA only.'
+            )
+        except (ValueError, RuntimeError, OSError) as exc:
+            QMessageBox.warning(self, 'Unified audit', str(exc))
     def audit_nodes(self):
         try:
             pipes = self.selected_vector_layer()
