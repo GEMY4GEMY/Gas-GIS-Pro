@@ -8,6 +8,8 @@ from qgis.PyQt.QtCore import Qt
 from gasgis.project_validation import validate_vector_path
 from gasgis.asset_layers import create_asset_layer, SCHEMAS
 from gasgis.editing import start_editing, save_edits, rollback_edits
+from gasgis.digitize import GasDigitizeTool
+from qgis.core import QgsSnappingConfig, QgsWkbTypes
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
@@ -26,6 +28,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.canvas)
         self.pan_tool = QgsMapToolPan(self.canvas)
         self.canvas.setMapTool(self.pan_tool)
+        self.digitize_tool = None
 
         self.layer_tree = QTreeWidget()
         self.layer_tree.setHeaderLabels(["Layers"])
@@ -48,6 +51,9 @@ class MainWindow(QMainWindow):
             ("Open layer", self.open_layer),
             ("New gas layer", self.new_gas_layer),
             ("Start editing", self.start_selected_edit),
+            ("Draw feature", self.draw_selected_feature),
+            ("Undo", self.undo_selected_edit),
+            ("Redo", self.redo_selected_edit),
             ("Save edits", self.save_selected_edit),
             ("Discard edits", self.discard_selected_edit),
             ("Open project", self.open_project),
@@ -165,12 +171,63 @@ class MainWindow(QMainWindow):
         return layer
 
     def run_edit_action(self, operation):
+        if self.digitize_tool is not None:
+            self.canvas.setMapTool(self.pan_tool)
+            self.digitize_tool = None
         try:
             operation(self.selected_vector_layer())
             self.update_attributes()
             self.canvas.refresh()
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, "Editing", str(exc))
+
+    def draw_selected_feature(self):
+        try:
+            layer = self.selected_vector_layer()
+            if not layer.isEditable():
+                raise ValueError("Start editing before drawing")
+            if layer.geometryType() not in (
+                QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry
+            ):
+                raise ValueError("Drawing supports point and line layers only")
+            config = self.project.snappingConfig()
+            config.setEnabled(True)
+            config.setMode(QgsSnappingConfig.AllLayers)
+            config.setType(QgsSnappingConfig.Vertex)
+            config.setTolerance(12)
+            config.setUnits(QgsSnappingConfig.Pixels)
+            self.project.setSnappingConfig(config)
+            self.digitize_tool = GasDigitizeTool(
+                self.canvas, layer, on_feature_added=self.update_attributes
+            )
+            self.canvas.setMapTool(self.digitize_tool)
+            self.statusBar().showMessage(
+                "Left click to draw; right click to finish a line. Save edits to commit."
+            )
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Digitizing", str(exc))
+
+    def undo_selected_edit(self):
+        try:
+            layer = self.selected_vector_layer()
+            if not layer.isEditable():
+                raise ValueError("Start editing first")
+            layer.undoStack().undo()
+            self.canvas.refresh()
+            self.update_attributes()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Undo", str(exc))
+
+    def redo_selected_edit(self):
+        try:
+            layer = self.selected_vector_layer()
+            if not layer.isEditable():
+                raise ValueError("Start editing first")
+            layer.undoStack().redo()
+            self.canvas.refresh()
+            self.update_attributes()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Redo", str(exc))
 
     def start_selected_edit(self):
         self.run_edit_action(start_editing)
