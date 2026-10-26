@@ -27,6 +27,14 @@ jobs:
           if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/run-with-osgeo4w.cmd')) { throw 'Launcher missing' }
           if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/gasgis/main.py')) { throw 'Entry point missing' }
           if (!(Test-Path 'dist/Gas-GIS-Pro-Prototype/NOT_PORTABLE_YET.txt')) { throw 'Prototype warning missing' }
+      - name: Exercise launcher failure handling without QGIS
+        shell: pwsh
+        run: |
+          $launcher = (Resolve-Path 'dist/Gas-GIS-Pro-Prototype/run-with-osgeo4w.cmd').Path
+          $env:OSGEO4W_ROOT = Join-Path $env:RUNNER_TEMP 'missing-osgeo4w'
+          & cmd.exe /d /c "`"$launcher`""
+          $code = $LASTEXITCODE
+          if ($code -ne 2) { throw "Expected exit code 2 for missing QGIS environment; got $code" }
       - uses: actions/upload-artifact@v4
         with:
           name: Gas-GIS-Pro-Source-Prototype
