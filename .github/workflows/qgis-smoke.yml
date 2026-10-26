@@ -46,9 +46,17 @@ jobs:
           QgsProject.instance().addMapLayer(layer)
           window.refresh_layers()
           assert window.layer_tree.topLevelItemCount() >= 1
-          item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, 32) == layer.id())
-          item.setCheckState(0, 0)
+          from qgis.PyQt.QtCore import Qt
+          item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
+          item.setCheckState(0, Qt.Unchecked)
           assert not QgsProject.instance().layerTreeRoot().findLayer(layer.id()).itemVisibilityChecked()
+          import tempfile
+          from pathlib import Path
+          from gasgis.asset_layers import create_asset_layer
+          with tempfile.TemporaryDirectory() as tmp:
+              gpkg = Path(tmp) / 'gas.gpkg'
+              saved = create_asset_layer(gpkg, 'gas_mains', 'EPSG:32636')
+              assert gpkg.is_file() and saved.isValid()
           window.close()
           del window
           app.exitQgis()
