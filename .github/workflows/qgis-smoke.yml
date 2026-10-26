@@ -58,6 +58,7 @@ jobs:
               saved = create_asset_layer(gpkg, 'gas_mains', 'EPSG:32636')
               assert gpkg.is_file() and saved.isValid()
           window.close()
+          QgsProject.instance().clear()
           del window
           print("QGIS desktop smoke test passed")
           # Process exit releases Qt/QGIS after the Python objects are gone.
