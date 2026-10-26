@@ -25,3 +25,24 @@ def line_segments(layer):
                     (start.x(), start.y()), (end.x(), end.y())
                 ))
     return segments
+
+
+def line_parts(layer):
+    """Return one complete endpoint pair per line part, not per vertex edge."""
+    # Reuse CRS/geometry validation in line_segments.
+    line_segments(layer)
+    parts = []
+    for feature in layer.getFeatures():
+        geometry = feature.geometry()
+        if geometry.isNull() or geometry.isEmpty():
+            continue
+        lines = geometry.asMultiPolyline() if geometry.isMultipart() else [geometry.asPolyline()]
+        for index, line in enumerate(lines):
+            if len(line) < 2:
+                continue
+            parts.append((
+                f"{feature.id()}:{index}",
+                (line[0].x(), line[0].y()),
+                (line[-1].x(), line[-1].y()),
+            ))
+    return parts
