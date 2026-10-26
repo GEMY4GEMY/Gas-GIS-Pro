@@ -80,6 +80,8 @@ jobs:
               window.layer_visibility.clear()
               window.refresh_layers()
               assert window.layer_tree.topLevelItemCount() >= 1
+              project.clear()
+              window.refresh_layers()
           from gasgis.asset_layers import create_asset_layer
           with tempfile.TemporaryDirectory() as tmp:
               gpkg = Path(tmp) / 'gas.gpkg'
