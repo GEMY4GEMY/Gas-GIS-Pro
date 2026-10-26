@@ -125,6 +125,24 @@ jobs:
                   'gas_mains', 'gas_services', 'gas_valves', 'gas_risers'
               }
               saved = services = valves = risers = None
+              QgsProject.instance().clear()
+              window.refresh_layers()
+              with patch.object(QFileDialog, 'getOpenFileName', return_value=(str(gpkg), '')), patch.object(
+                  QInputDialog, 'getItem', return_value=('gas_mains', True)
+              ):
+                  window.open_layer()
+              assert len(QgsProject.instance().mapLayersByName('gas_mains')) == 1
+              assert len(QgsProject.instance().mapLayers()) == 1
+              QgsProject.instance().clear()
+              window.refresh_layers()
+              with patch.object(QFileDialog, 'getOpenFileName', return_value=(str(gpkg), '')), patch.object(
+                  QInputDialog, 'getItem', return_value=('All layers', True)
+              ):
+                  window.open_layer()
+              assert len(QgsProject.instance().mapLayers()) == 4
+              assert window.layer_tree.topLevelItemCount() == 4
+              QgsProject.instance().clear()
+              window.refresh_layers()
               try:
                   create_asset_layer(Path(tmp) / 'feet.gpkg', 'gas_mains', 'EPSG:2263')
               except ValueError:
