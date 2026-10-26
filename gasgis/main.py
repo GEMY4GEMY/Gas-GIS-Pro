@@ -9,6 +9,9 @@ from gasgis.project_validation import validate_vector_path
 from gasgis.asset_layers import create_asset_layer, SCHEMAS
 from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
+from gasgis.network_audit import disconnected_endpoints
+from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
+from qgis.PyQt.QtCore import QVariant
 from qgis.core import QgsSnappingConfig, QgsWkbTypes
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
@@ -52,6 +55,7 @@ class MainWindow(QMainWindow):
             ("New gas layer", self.new_gas_layer),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
+            ("Audit pipe ends", self.audit_selected_layer),
             ("Undo", self.undo_selected_edit),
             ("Redo", self.redo_selected_edit),
             ("Save edits", self.save_selected_edit),
@@ -228,6 +232,41 @@ class MainWindow(QMainWindow):
             self.update_attributes()
         except ValueError as exc:
             QMessageBox.warning(self, "Redo", str(exc))
+
+    def audit_selected_layer(self):
+        try:
+            layer = self.selected_vector_layer()
+            findings = disconnected_endpoints(layer)
+            if not findings:
+                QMessageBox.information(self, "Network audit", "No loose pipe ends detected.")
+                return
+            from qgis.core import QgsCoordinateReferenceSystem
+            markers = QgsVectorLayer(
+                "Point?crs=" + layer.crs().authid(), "AUDIT - loose endpoints", "memory"
+            )
+            markers.dataProvider().addAttributes([
+                QgsField("asset", QVariant.String),
+                QgsField("end_no", QVariant.Int),
+            ])
+            markers.updateFields()
+            features = []
+            for finding in findings:
+                feature = QgsFeature(markers.fields())
+                feature.setGeometry(QgsGeometry.fromPointXY(
+                    QgsPointXY(finding["x"], finding["y"])
+                ))
+                feature.setAttributes([finding["asset"], finding["end"]])
+                features.append(feature)
+            markers.dataProvider().addFeatures(features)
+            markers.updateExtents()
+            self.project.addMapLayer(markers)
+            self.canvas.zoomToFullExtent()
+            QMessageBox.information(
+                self, "Network audit",
+                f"Found {len(findings)} loose endpoints. Review AUDIT layer."
+            )
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Network audit", str(exc))
 
     def start_selected_edit(self):
         self.run_edit_action(start_editing)
