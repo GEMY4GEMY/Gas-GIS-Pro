@@ -179,6 +179,28 @@ jobs:
                   relative_saved = relative_services = None
               finally:
                   os.chdir(original_cwd)
+          removal_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'remove_test', 'memory')
+          QgsProject.instance().addMapLayer(removal_layer)
+          window.refresh_layers()
+          from qgis.PyQt.QtCore import Qt
+          removal_item = next(
+              window.layer_tree.topLevelItem(i)
+              for i in range(window.layer_tree.topLevelItemCount())
+              if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == removal_layer.id()
+          )
+          window.layer_tree.setCurrentItem(removal_item)
+          assert removal_layer.startEditing()
+          with patch('gasgis.main.QMessageBox.warning') as warning:
+              window.remove_selected_layer()
+              warning.assert_called_once()
+          assert QgsProject.instance().mapLayer(removal_layer.id()) is not None
+          assert removal_layer.rollBack()
+          with patch('gasgis.main.QMessageBox.question', return_value=QMessageBox.No):
+              window.remove_selected_layer()
+          assert QgsProject.instance().mapLayer(removal_layer.id()) is not None
+          with patch('gasgis.main.QMessageBox.question', return_value=QMessageBox.Yes):
+              window.remove_selected_layer()
+          assert QgsProject.instance().mapLayer(removal_layer.id()) is None
           test_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'editing_test', 'memory')
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
