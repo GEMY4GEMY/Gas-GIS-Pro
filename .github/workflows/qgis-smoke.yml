@@ -208,9 +208,10 @@ jobs:
           with patch('gasgis.main.QMessageBox.question', return_value=QMessageBox.No):
               window.remove_selected_layer()
           assert QgsProject.instance().mapLayer(removal_layer.id()) is not None
+          removal_id = removal_layer.id()
           with patch('gasgis.main.QMessageBox.question', return_value=QMessageBox.Yes):
               window.remove_selected_layer()
-          assert QgsProject.instance().mapLayer(removal_layer.id()) is None
+          assert QgsProject.instance().mapLayer(removal_id) is None
           test_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'editing_test', 'memory')
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
