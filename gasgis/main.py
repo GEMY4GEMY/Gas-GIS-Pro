@@ -265,7 +265,6 @@ class MainWindow(QMainWindow):
             if not findings:
                 QMessageBox.information(self, "Network audit", "No loose pipe ends detected.")
                 return
-            from qgis.core import QgsCoordinateReferenceSystem
             markers = QgsVectorLayer(
                 "Point?crs=" + layer.crs().authid(), "AUDIT - loose endpoints", "memory"
             )
@@ -297,7 +296,7 @@ class MainWindow(QMainWindow):
                 self, "Network audit",
                 f"Found {len(findings)} loose endpoints. Review AUDIT layer."
             )
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError, OSError) as exc:
             QMessageBox.warning(self, "Network audit", str(exc))
 
     def unified_audit_csv(self):
@@ -348,7 +347,6 @@ class MainWindow(QMainWindow):
     def audit_nodes(self):
         try:
             pipes = self.selected_vector_layer()
-            segments = line_segments(pipes)
             endpoints = []
             for asset, start, end in line_parts(pipes):
                 endpoints.extend([
