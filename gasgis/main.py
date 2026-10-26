@@ -433,6 +433,29 @@ class MainWindow(QMainWindow):
         if answer == QMessageBox.Yes:
             self.run_edit_action(rollback_edits)
 
+    def active_edit_layers(self):
+        return [
+            layer.name() for layer in self.project.mapLayers().values()
+            if isinstance(layer, QgsVectorLayer) and layer.isEditable()
+        ]
+
+    def confirm_close(self):
+        active = self.active_edit_layers()
+        if not active:
+            return True
+        QMessageBox.warning(
+            self, "Unsaved edits",
+            "Save or discard active layer edits before closing: "
+            + ", ".join(active)
+        )
+        return False
+
+    def closeEvent(self, event):
+        if self.confirm_close():
+            event.accept()
+        else:
+            event.ignore()
+
     def open_project(self):
         editable = [
             layer.name() for layer in self.project.mapLayers().values()
