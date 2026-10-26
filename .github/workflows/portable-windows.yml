@@ -32,11 +32,8 @@ jobs:
         run: |
           $launcher = (Resolve-Path 'dist/Gas-GIS-Pro-Prototype/run-with-osgeo4w.cmd').Path
           $env:OSGEO4W_ROOT = Join-Path $env:RUNNER_TEMP 'missing-osgeo4w'
-          $global:PSNativeCommandUseErrorActionPreference = $false
-          $output = & cmd.exe /d /c "`"$launcher`"" 2>&1
-          $code = $LASTEXITCODE
-          Write-Host ($output -join [Environment]::NewLine)
-          if ($code -ne 2) { throw "Expected exit code 2 for missing QGIS environment; got $code" }
+          $process = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d', '/c', "`"$launcher`"") -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -ne 2) { throw "Expected exit code 2 for missing QGIS environment; got $($process.ExitCode)" }
       - uses: actions/upload-artifact@v4
         with:
           name: Gas-GIS-Pro-Source-Prototype
