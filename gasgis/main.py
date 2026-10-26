@@ -334,7 +334,7 @@ class MainWindow(QMainWindow):
             pipes = self.selected_vector_layer()
             segments = line_segments(pipes)
             endpoints = []
-            for asset, start, end in segments:
+            for asset, start, end in line_parts(pipes):
                 endpoints.extend([
                     (asset, 0, start[0], start[1]),
                     (asset, 1, end[0], end[1]),
