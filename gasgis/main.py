@@ -465,7 +465,8 @@ def main():
     window.show()
     result = app.exec_()
     window.close()
-    app.exitQgis()
+    del window
+    # Avoid destroying QGIS singleton resources while Qt objects may survive.
     return result
 
 
