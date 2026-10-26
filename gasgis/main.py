@@ -7,6 +7,7 @@ from qgis.gui import QgsMapCanvas, QgsMapToolPan
 from qgis.PyQt.QtCore import Qt
 from gasgis.project_validation import validate_vector_path
 from gasgis.asset_layers import create_asset_layer, SCHEMAS
+from gasgis.editing import start_editing, save_edits, rollback_edits
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
@@ -46,6 +47,9 @@ class MainWindow(QMainWindow):
         for title, callback in (
             ("Open layer", self.open_layer),
             ("New gas layer", self.new_gas_layer),
+            ("Start editing", self.start_selected_edit),
+            ("Save edits", self.save_selected_edit),
+            ("Discard edits", self.discard_selected_edit),
             ("Open project", self.open_project),
             ("Save project", self.save_project),
             ("Pan", lambda: self.canvas.setMapTool(self.pan_tool)),
@@ -150,6 +154,42 @@ class MainWindow(QMainWindow):
             return
         self.project.addMapLayer(layer)
         self.statusBar().showMessage(f"Created {layer_name} in {path}", 10000)
+
+    def selected_vector_layer(self):
+        item = self.layer_tree.currentItem()
+        if item is None:
+            raise ValueError("Select a layer in the Layers panel first")
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole))
+        if not isinstance(layer, QgsVectorLayer):
+            raise ValueError("Select a vector layer")
+        return layer
+
+    def run_edit_action(self, operation):
+        try:
+            operation(self.selected_vector_layer())
+            self.update_attributes()
+            self.canvas.refresh()
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Editing", str(exc))
+
+    def start_selected_edit(self):
+        self.run_edit_action(start_editing)
+
+    def save_selected_edit(self):
+        self.run_edit_action(save_edits)
+
+    def discard_selected_edit(self):
+        layer = None
+        try:
+            layer = self.selected_vector_layer()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Editing", str(exc))
+            return
+        answer = QMessageBox.question(
+            self, "Discard edits", "Discard all unsaved edits on this layer?"
+        )
+        if answer == QMessageBox.Yes:
+            self.run_edit_action(rollback_edits)
 
     def open_project(self):
         path, _ = QFileDialog.getOpenFileName(
