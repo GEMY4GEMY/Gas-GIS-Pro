@@ -8,7 +8,7 @@ import sqlite3
 
 from qgis.core import (
     QgsCoordinateReferenceSystem, QgsField,
-    QgsVectorFileWriter, QgsWkbTypes, QgsProject, QgsVectorLayer,
+    QgsVectorFileWriter, QgsWkbTypes, QgsUnitTypes, QgsProject, QgsVectorLayer,
 )
 from qgis.PyQt.QtCore import QVariant
 
@@ -48,6 +48,8 @@ def create_asset_layer(gpkg_path, layer_name, crs_authid):
     crs = QgsCoordinateReferenceSystem(crs_authid)
     if not crs.isValid() or crs.isGeographic():
         raise ValueError("A valid projected CRS is required")
+    if crs.mapUnits() != QgsUnitTypes.DistanceMeters:
+        raise ValueError("Projected CRS must use meters")
     if not path.parent.is_dir():
         raise FileNotFoundError("Output directory does not exist")
     return _write_asset_layer(path, layer_name, crs, append=False)
@@ -63,6 +65,8 @@ def append_asset_layer(gpkg_path, layer_name, crs_authid):
     crs = QgsCoordinateReferenceSystem(crs_authid)
     if not crs.isValid() or crs.isGeographic():
         raise ValueError('A valid projected CRS is required')
+    if crs.mapUnits() != QgsUnitTypes.DistanceMeters:
+        raise ValueError('Projected CRS must use meters')
     try:
         with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True) as db:
             header = db.execute('PRAGMA application_id').fetchone()[0]
