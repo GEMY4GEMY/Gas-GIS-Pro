@@ -93,13 +93,21 @@ jobs:
           QgsProject.instance().addMapLayer(test_layer)
           assert test_layer.startEditing()
           assert window.active_edit_layers() == ['editing_test']
-          from unittest.mock import patch
+          from unittest.mock import patch, Mock
           with patch('gasgis.main.QMessageBox.warning') as warning:
               assert not window.confirm_close()
-              warning.assert_called_once()
+              blocked_event = Mock()
+              window.closeEvent(blocked_event)
+              blocked_event.ignore.assert_called_once()
+              blocked_event.accept.assert_not_called()
+              assert warning.call_count == 2
           assert test_layer.rollBack()
           assert window.active_edit_layers() == []
           assert window.confirm_close()
+          allowed_event = Mock()
+          window.closeEvent(allowed_event)
+          allowed_event.accept.assert_called_once()
+          allowed_event.ignore.assert_not_called()
           window.close()
           QgsProject.instance().clear()
           del window
