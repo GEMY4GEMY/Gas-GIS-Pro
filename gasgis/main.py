@@ -304,7 +304,7 @@ class MainWindow(QMainWindow):
             pipes = self.selected_vector_layer()
             parts = line_parts(pipes)
             segments = line_segments(pipes)
-            nodes = []
+            nodes = None
             point_layers = [
                 layer for layer in self.project.mapLayers().values()
                 if isinstance(layer, QgsVectorLayer)
