@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
         self.pan_tool = QgsMapToolPan(self.canvas)
         self.canvas.setMapTool(self.pan_tool)
         self.digitize_tool = None
+        self.layer_visibility = {}
 
         self.layer_tree = QTreeWidget()
         self.layer_tree.setHeaderLabels(["Layers"])
@@ -85,13 +86,18 @@ class MainWindow(QMainWindow):
         layers = [layer for layer in self.project.mapLayers().values() if layer.isValid()]
         previous = self.layer_tree.currentItem()
         selected_id = previous.data(0, Qt.UserRole) if previous else None
+        valid_ids = {layer.id() for layer in layers}
+        self.layer_visibility = {
+            key: value for key, value in self.layer_visibility.items()
+            if key in valid_ids
+        }
         self.layer_tree.blockSignals(True)
         self.layer_tree.clear()
         for layer in reversed(layers):
             item = QTreeWidgetItem([layer.name()])
             item.setData(0, Qt.UserRole, layer.id())
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.Checked)
+            item.setCheckState(0, Qt.Checked if self.layer_visibility.get(layer.id(), True) else Qt.Unchecked)
             self.layer_tree.addTopLevelItem(item)
             if layer.id() == selected_id:
                 self.layer_tree.setCurrentItem(item)
@@ -110,6 +116,9 @@ class MainWindow(QMainWindow):
         self.canvas.refresh()
 
     def set_layer_visibility(self, item, column):
+        self.layer_visibility[item.data(0, Qt.UserRole)] = (
+            item.checkState(0) == Qt.Checked
+        )
         self.sync_canvas_layers()
 
     def update_attributes(self):
