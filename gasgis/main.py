@@ -6,6 +6,7 @@ from qgis.core import QgsApplication, QgsProject, QgsVectorLayer
 from qgis.gui import QgsMapCanvas, QgsMapToolPan
 from qgis.PyQt.QtCore import Qt
 from gasgis.project_validation import validate_vector_path
+from gasgis.geopackage_catalog import geopackage_vector_tables
 from gasgis.asset_layers import create_asset_layer, append_asset_layer, SCHEMAS
 from gasgis.editing import start_editing, save_edits, rollback_edits
 from gasgis.digitize import GasDigitizeTool
@@ -160,11 +161,36 @@ class MainWindow(QMainWindow):
         if errors:
             QMessageBox.warning(self, "Input check failed", ", ".join(errors))
             return
-        layer = QgsVectorLayer(path, Path(path).stem, "ogr")
-        if not layer.isValid():
-            QMessageBox.warning(self, "Import failed", "Unable to load the layer.")
-            return
-        self.project.addMapLayer(layer)
+        if Path(path).suffix.lower() == ".gpkg":
+            try:
+                names = geopackage_vector_tables(path)
+            except ValueError as exc:
+                QMessageBox.warning(self, "GeoPackage error", str(exc))
+                return
+            if not names:
+                QMessageBox.warning(self, "GeoPackage error", "No spatial feature layers found.")
+                return
+            if len(names) > 1:
+                choices = ["All layers"] + names
+                choice, ok = QInputDialog.getItem(
+                    self, "Open GeoPackage", "Choose layer(s):", choices, 0, False
+                )
+                if not ok:
+                    return
+                names = names if choice == "All layers" else [choice]
+            layers = [QgsVectorLayer(f"{path}|layername={name}", name, "ogr") for name in names]
+            invalid = [name for name, layer in zip(names, layers) if not layer.isValid()]
+            if invalid:
+                QMessageBox.warning(self, "Import failed", "Unable to load: " + ", ".join(invalid))
+                return
+            for layer in layers:
+                self.project.addMapLayer(layer)
+        else:
+            layer = QgsVectorLayer(path, Path(path).stem, "ogr")
+            if not layer.isValid():
+                QMessageBox.warning(self, "Import failed", "Unable to load the layer.")
+                return
+            self.project.addMapLayer(layer)
         self.canvas.zoomToFullExtent()
 
     def new_gas_layer(self):
