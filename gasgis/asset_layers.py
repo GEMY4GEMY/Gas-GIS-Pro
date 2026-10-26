@@ -96,6 +96,7 @@ def _write_asset_layer(path, layer_name, crs, append):
     options.driverName = "GPKG"
     options.layerName = layer_name
     if append:
+        # Duplicate names were checked above; never select overwrite mode.
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
     result = QgsVectorFileWriter.writeAsVectorFormatV3(
         layer, str(path), QgsProject.instance().transformContext(), options
