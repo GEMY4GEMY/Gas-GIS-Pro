@@ -2,13 +2,17 @@
 from qgis.core import QgsWkbTypes, QgsUnitTypes
 
 
-def line_segments(layer):
+def validate_line_layer(layer):
     if not layer.isValid() or layer.geometryType() != QgsWkbTypes.LineGeometry:
         raise ValueError("Select a valid line layer")
     if not layer.crs().isValid() or layer.crs().isGeographic():
         raise ValueError("A projected CRS is required")
     if layer.crs().mapUnits() != QgsUnitTypes.DistanceMeters:
         raise ValueError("Layer CRS must use meters")
+
+
+def line_segments(layer):
+    validate_line_layer(layer)
     segments = []
     for feature in layer.getFeatures():
         geometry = feature.geometry()
@@ -29,8 +33,7 @@ def line_segments(layer):
 
 def line_parts(layer):
     """Return one complete endpoint pair per line part, not per vertex edge."""
-    # Reuse CRS/geometry validation in line_segments.
-    line_segments(layer)
+    validate_line_layer(layer)
     parts = []
     for feature in layer.getFeatures():
         geometry = feature.geometry()
