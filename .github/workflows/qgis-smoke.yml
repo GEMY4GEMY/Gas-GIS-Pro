@@ -28,6 +28,17 @@ jobs:
           from qgis.core import QgsApplication
           app = QgsApplication([], True)
           app.initQgis()
+          from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY
+          from gasgis.geometry_adapter import line_parts, line_segments
+          from gasgis.unified_audit import audit_network
+          layer = QgsVectorLayer('LineString?crs=EPSG:32636', 'pipes', 'memory')
+          assert layer.isValid()
+          feature = QgsFeature(layer.fields())
+          feature.setGeometry(QgsGeometry.fromPolylineXY([QgsPointXY(0, 0), QgsPointXY(1, 0), QgsPointXY(2, 0)]))
+          assert layer.dataProvider().addFeatures([feature])[0]
+          assert len(line_parts(layer)) == 1
+          assert len(line_segments(layer)) == 2
+          assert len(audit_network(line_parts(layer), line_segments(layer))) == 2
           from gasgis.main import MainWindow
           window = MainWindow()
           assert window.windowTitle().startswith("Gas GIS Pro")
