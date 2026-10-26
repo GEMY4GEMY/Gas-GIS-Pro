@@ -97,7 +97,11 @@ class MainWindow(QMainWindow):
             item = QTreeWidgetItem([layer.name()])
             item.setData(0, Qt.UserRole, layer.id())
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.Checked if self.layer_visibility.get(layer.id(), True) else Qt.Unchecked)
+            node = self.project.layerTreeRoot().findLayer(layer.id())
+            visible = self.layer_visibility.get(
+                layer.id(), node.itemVisibilityChecked() if node else True
+            )
+            item.setCheckState(0, Qt.Checked if visible else Qt.Unchecked)
             self.layer_tree.addTopLevelItem(item)
             if layer.id() == selected_id:
                 self.layer_tree.setCurrentItem(item)
@@ -116,9 +120,12 @@ class MainWindow(QMainWindow):
         self.canvas.refresh()
 
     def set_layer_visibility(self, item, column):
-        self.layer_visibility[item.data(0, Qt.UserRole)] = (
-            item.checkState(0) == Qt.Checked
-        )
+        layer_id = item.data(0, Qt.UserRole)
+        visible = item.checkState(0) == Qt.Checked
+        self.layer_visibility[layer_id] = visible
+        node = self.project.layerTreeRoot().findLayer(layer_id)
+        if node is not None:
+            node.setItemVisibilityChecked(visible)
         self.sync_canvas_layers()
 
     def update_attributes(self):
@@ -432,6 +439,7 @@ class MainWindow(QMainWindow):
             self, "Open QGIS project", "", "QGIS projects (*.qgz *.qgs)"
         )
         if path and self.project.read(path):
+            self.layer_visibility.clear()
             self.refresh_layers()
             self.canvas.zoomToFullExtent()
         elif path:
