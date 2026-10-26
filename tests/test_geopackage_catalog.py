@@ -22,7 +22,7 @@ def test_rejects_ordinary_sqlite(tmp_path):
 def test_returns_only_spatial_layers_sorted(tmp_path):
     path = tmp_path / "assets.gpkg"
     with sqlite3.connect(path) as db:
-        db.execute("PRAGMA application_id = 1196437808")
+        db.execute("PRAGMA application_id = 1196444487")
         db.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
         db.executemany(
             "INSERT INTO gpkg_contents VALUES (?, ?)",
@@ -39,6 +39,6 @@ def test_returns_only_spatial_layers_sorted(tmp_path):
 def test_reports_missing_contents_table(tmp_path):
     path = tmp_path / "broken.gpkg"
     with sqlite3.connect(path) as db:
-        db.execute("PRAGMA application_id = 1196437808")
+        db.execute("PRAGMA application_id = 1196444487")
     with pytest.raises(ValueError, match="Cannot read GeoPackage metadata"):
         geopackage_vector_tables(path)
