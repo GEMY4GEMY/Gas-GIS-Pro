@@ -1,0 +1,27 @@
+name: Windows portable prototype
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download QGIS standalone installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host 'Portable bundling requires an audited pinned QGIS runtime and redistribution process.'
+          Write-Host 'This workflow currently publishes source prototype only, not a standalone executable.'
+      - name: Assemble source prototype
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/Gas-GIS-Pro-Prototype | Out-Null
+          Copy-Item -Recurse gasgis dist/Gas-GIS-Pro-Prototype/
+          Copy-Item README.md,pyproject.toml dist/Gas-GIS-Pro-Prototype/
+          Set-Content -Path dist/Gas-GIS-Pro-Prototype/NOT_PORTABLE_YET.txt -Value 'Prototype source package. Requires a compatible QGIS Python environment. This is not a portable EXE.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gas-GIS-Pro-Source-Prototype
+          path: dist/Gas-GIS-Pro-Prototype/
