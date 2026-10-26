@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
             ("New gas layer", self.new_gas_layer),
             ("Zoom to layer", self.zoom_to_selected_layer),
             ("Remove layer", self.remove_selected_layer),
+            ("Rename layer", self.rename_selected_layer),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -226,6 +227,28 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def rename_selected_layer(self):
+        """Rename the selected map layer display name, without renaming its data source."""
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if layer is None:
+            self.statusBar().showMessage("Select a layer first.", 5000)
+            return
+        name, ok = QInputDialog.getText(
+            self, "Rename layer", "Display name:", text=layer.name()
+        )
+        if not ok:
+            return
+        name = name.strip()
+        if not name:
+            QMessageBox.warning(self, "Invalid layer name", "Layer name cannot be empty.")
+            return
+        if name == layer.name():
+            return
+        layer.setName(name)
+        self.refresh_layers()
+        self.statusBar().showMessage("Layer display name updated; source file unchanged.", 5000)
 
     def remove_selected_layer(self):
         """Remove a map layer from the project, never its source dataset."""
