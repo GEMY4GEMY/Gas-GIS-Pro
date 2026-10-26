@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
             toolbar.addAction(title, callback)
         self.project.layersAdded.connect(lambda _: self.refresh_layers())
         self.project.layersRemoved.connect(lambda _: self.refresh_layers())
+        self.refresh_layers()
         self.statusBar().showMessage("Development build — not validated for production")
 
     def refresh_layers(self):
