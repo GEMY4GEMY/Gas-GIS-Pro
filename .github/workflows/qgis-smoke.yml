@@ -52,7 +52,23 @@ jobs:
           item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
           item.setCheckState(0, Qt.Unchecked)
           assert not QgsProject.instance().layerTreeRoot().findLayer(layer.id()).itemVisibilityChecked()
+          from qgis.core import QgsVectorFileWriter
           with tempfile.TemporaryDirectory() as tmp:
+              gpkg = Path(tmp) / 'pipes.gpkg'
+              options = QgsVectorFileWriter.SaveVectorOptions()
+              options.driverName = 'GPKG'
+              options.layerName = 'pipes'
+              result = QgsVectorFileWriter.writeAsVectorFormatV3(
+                  layer, str(gpkg), QgsProject.instance().transformContext(), options
+              )
+              assert result[0] == QgsVectorFileWriter.NoError
+              QgsProject.instance().removeMapLayer(layer.id())
+              persisted = QgsVectorLayer(str(gpkg) + '|layername=pipes', 'pipes', 'ogr')
+              assert persisted.isValid()
+              QgsProject.instance().addMapLayer(persisted)
+              window.refresh_layers()
+              persisted_item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == persisted.id())
+              persisted_item.setCheckState(0, Qt.Unchecked)
               project_file = Path(tmp) / 'visibility.qgz'
               project = QgsProject.instance()
               project.setFileName(str(project_file))
