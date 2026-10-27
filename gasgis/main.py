@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
             ("Gas style", self.apply_gas_layer_style),
             ("Style all gas layers", self.style_all_gas_layers),
             ("Select by attribute", self.select_by_attribute),
+            ("Select by location", self.select_by_location),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -289,6 +290,47 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def select_by_location(self):
+        """Select features intersecting another layer in the same CRS."""
+        try:
+            target = self.selected_vector_layer()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Select by location", str(exc))
+            return
+        candidates = [
+            layer for layer in self.project.mapLayers().values()
+            if isinstance(layer, QgsVectorLayer) and layer.isValid()
+            and layer.id() != target.id() and layer.crs() == target.crs()
+        ]
+        if not candidates:
+            QMessageBox.information(
+                self, "Select by location",
+                "Add another vector layer with the same CRS to select against."
+            )
+            return
+        labels = [f"{layer.name()} [{layer.id()}]" for layer in candidates]
+        choice, ok = QInputDialog.getItem(
+            self, "Select by location", "Intersects layer:", labels, 0, False
+        )
+        if not ok:
+            return
+        source = candidates[labels.index(choice)]
+        geometries = [
+            feature.geometry() for feature in source.getFeatures()
+            if feature.hasGeometry() and not feature.geometry().isEmpty()
+        ]
+        selected = []
+        for feature in target.getFeatures():
+            if not feature.hasGeometry() or feature.geometry().isEmpty():
+                continue
+            geometry = feature.geometry()
+            if any(geometry.intersects(other) for other in geometries):
+                selected.append(feature.id())
+        target.selectByIds(selected)
+        self.statusBar().showMessage(
+            f"Selected {len(selected)} intersecting feature(s).", 8000
+        )
 
     def select_by_attribute(self):
         """Select features matching an exact field value without SQL expression injection."""
