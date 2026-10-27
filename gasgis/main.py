@@ -19,7 +19,7 @@ from gasgis.node_adapter import point_nodes
 from gasgis.node_connectivity import match_nodes
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
-from qgis.core import QgsSnappingConfig, QgsWkbTypes, QgsLineSymbol, QgsMarkerSymbol
+from qgis.core import QgsSnappingConfig, QgsWkbTypes, QgsLineSymbol, QgsMarkerSymbol, QgsUnitTypes
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
@@ -316,6 +316,26 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         source = candidates[labels.index(choice)]
+        relation, ok = QInputDialog.getItem(
+            self, "Select by location", "Spatial relation:",
+            ["Intersects", "Within distance (meters)"], 0, False
+        )
+        if not ok:
+            return
+        distance = 0.0
+        if relation == "Within distance (meters)":
+            if target.crs().isGeographic() or target.crs().mapUnits() != QgsUnitTypes.DistanceMeters:
+                QMessageBox.warning(
+                    self, "Select by location",
+                    "Distance requires a projected CRS measured in meters."
+                )
+                return
+            distance, ok = QInputDialog.getDouble(
+                self, "Select by location", "Maximum distance (meters):",
+                1.0, 0.0, 1000000.0, 2
+            )
+            if not ok:
+                return
         geometries = [
             feature.geometry() for feature in source.getFeatures()
             if feature.hasGeometry() and not feature.geometry().isEmpty()
@@ -325,7 +345,11 @@ class MainWindow(QMainWindow):
             if not feature.hasGeometry() or feature.geometry().isEmpty():
                 continue
             geometry = feature.geometry()
-            if any(geometry.intersects(other) for other in geometries):
+            if any(
+                geometry.intersects(other) if relation == "Intersects"
+                else geometry.distance(other) <= distance
+                for other in geometries
+            ):
                 selected.append(feature.id())
         target.selectByIds(selected)
         self.statusBar().showMessage(
