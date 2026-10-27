@@ -82,7 +82,7 @@ jobs:
           window.zoom_to_selected_layer()
           assert 'Select a layer first' in window.statusBar().currentMessage()
           window.layer_tree.setCurrentItem(window.layer_tree.topLevelItem(0))
-          with patch('gasgis.main.QInputDialog.getItem', return_value=('diameter_mm', True)), patch(
+          with patch('gasgis.main.QInputDialog.getItem', side_effect=[('diameter_mm', True), ('=', True)]), patch(
               'gasgis.main.QInputDialog.getText', return_value=('63', True)
           ):
               window.select_by_attribute()
