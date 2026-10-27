@@ -92,6 +92,11 @@ jobs:
               window.refresh_layers()
               persisted_item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == persisted.id())
               persisted_item.setCheckState(0, Qt.Unchecked)
+              from qgis.core import QgsLineSymbol
+              persisted.renderer().setSymbol(QgsLineSymbol.createSimple({
+                  'line_color': '#2475bb', 'line_width': '1.8'
+              }))
+              persisted.triggerRepaint()
               project_file = Path(tmp) / 'visibility.qgz'
               project = QgsProject.instance()
               project.setFileName(str(project_file))
@@ -100,6 +105,9 @@ jobs:
               restored = project.mapLayersByName('pipes')
               assert len(restored) == 1
               assert not project.layerTreeRoot().findLayer(restored[0].id()).itemVisibilityChecked()
+              restored_symbol = restored[0].renderer().symbol()
+              assert restored_symbol.color().name() == '#2475bb'
+              assert abs(restored_symbol.width() - 1.8) < 0.01
               window.layer_visibility.clear()
               window.refresh_layers()
               assert window.layer_tree.topLevelItemCount() >= 1
