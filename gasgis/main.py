@@ -56,6 +56,13 @@ def apply_gas_style(layer):
     return True
 
 
+def _matches_numeric(candidate, expected):
+    try:
+        return float(candidate) == expected
+    except (TypeError, ValueError):
+        return False
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -97,6 +104,7 @@ class MainWindow(QMainWindow):
             ("Symbol size", self.set_selected_symbol_size),
             ("Gas style", self.apply_gas_layer_style),
             ("Style all gas layers", self.style_all_gas_layers),
+            ("Select by attribute", self.select_by_attribute),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -260,6 +268,52 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def select_by_attribute(self):
+        """Select features matching an exact field value without SQL expression injection."""
+        try:
+            layer = self.selected_vector_layer()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Select by attribute", str(exc))
+            return
+        fields = [field.name() for field in layer.fields()]
+        if not fields:
+            QMessageBox.information(self, "Select by attribute", "Layer has no fields.")
+            return
+        field_name, ok = QInputDialog.getItem(
+            self, "Select by attribute", "Field:", fields, 0, False
+        )
+        if not ok:
+            return
+        value, ok = QInputDialog.getText(
+            self, "Select by attribute", f"Exact value for {field_name}:"
+        )
+        if not ok:
+            return
+        index = layer.fields().indexFromName(field_name)
+        field = layer.fields().at(index)
+        if field.isNumeric():
+            try:
+                typed_value = float(value)
+            except ValueError:
+                QMessageBox.warning(
+                    self, "Select by attribute", "Enter a valid numeric value."
+                )
+                return
+            matches = [
+                feature.id() for feature in layer.getFeatures()
+                if feature.attributes()[index] is not None
+                and str(feature.attributes()[index]) != "NULL"
+                and _matches_numeric(feature.attributes()[index], typed_value)
+            ]
+        else:
+            matches = [
+                feature.id() for feature in layer.getFeatures()
+                if str(feature.attributes()[index]) == value
+            ]
+        layer.selectByIds(matches)
+        self.statusBar().showMessage(f"Selected {len(matches)} feature(s).", 8000)
+
 
     def style_all_gas_layers(self):
         """Apply standard symbols to all recognized gas asset layers in this project."""
