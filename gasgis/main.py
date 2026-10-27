@@ -364,7 +364,7 @@ class MainWindow(QMainWindow):
                 selected.append(feature.id())
         target.selectByIds(selected)
         self.statusBar().showMessage(
-            f"Selected {len(selected)} intersecting feature(s).", 8000
+            f"Selected {len(selected)} feature(s) by {relation.lower()}.", 8000
         )
 
     def select_by_attribute(self):
