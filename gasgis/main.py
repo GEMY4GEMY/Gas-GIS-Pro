@@ -13,6 +13,7 @@ from gasgis.digitize import GasDigitizeTool
 from gasgis.network_audit import disconnected_endpoints
 from gasgis.audit_export import export_audit_csv
 from gasgis.geometry_adapter import line_segments, line_parts
+from gasgis.service_layer_adapter import service_proposals
 from gasgis.unified_audit import audit_network
 from gasgis.crossings import crossing_candidates
 from gasgis.node_adapter import point_nodes
@@ -127,6 +128,7 @@ class MainWindow(QMainWindow):
             ("Style all gas layers", self.style_all_gas_layers),
             ("Select by attribute", self.select_by_attribute),
             ("Select by location", self.select_by_location),
+            ("Preview services", self.preview_service_connections),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -290,6 +292,72 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def preview_service_connections(self):
+        """Preview proposed riser-to-main links without editing source layers."""
+        mains = self.project.mapLayersByName("gas_mains")
+        risers = self.project.mapLayersByName("gas_risers")
+        if len(mains) != 1 or len(risers) != 1:
+            QMessageBox.warning(
+                self, "Preview services",
+                "Load exactly one gas_mains and one gas_risers layer first."
+            )
+            return
+        try:
+            proposals = service_proposals(risers[0], mains[0], max_distance_m=5.0)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Preview services", str(exc))
+            return
+        previous = self.project.mapLayersByName("service_preview")
+        for old in previous:
+            if old.isEditable():
+                QMessageBox.warning(
+                    self, "Preview services", "Finish editing the existing preview first."
+                )
+                return
+        for old in previous:
+            self.project.removeMapLayer(old.id())
+        preview = QgsVectorLayer(
+            f"LineString?crs={mains[0].crs().authid()}",
+            "service_preview", "memory"
+        )
+        if not preview.isValid():
+            QMessageBox.warning(self, "Preview services", "Could not create preview layer.")
+            return
+        preview.dataProvider().addAttributes([
+            QgsField("riser_id", QVariant.String),
+            QgsField("length_m", QVariant.Double),
+        ])
+        preview.updateFields()
+        accepted = [p for p in proposals if p["within_limit"]]
+        features = []
+        for proposal in accepted:
+            feature = QgsFeature(preview.fields())
+            feature.setGeometry(QgsGeometry.fromPolylineXY([
+                QgsPointXY(*proposal["riser"]),
+                QgsPointXY(*proposal["main_point"]),
+            ]))
+            feature.setAttributes([
+                str(proposal["riser_feature_id"]), proposal["distance_m"]
+            ])
+            features.append(feature)
+        if features:
+            preview.dataProvider().addFeatures(features)
+            preview.updateExtents()
+        preview.renderer().setSymbol(
+            QgsLineSymbol.createSimple({
+                "line_color": "#8e44ad", "line_width": "0.6",
+                "line_style": "dash"
+            })
+        )
+        self.project.addMapLayer(preview)
+        self.canvas.refresh()
+        self.statusBar().showMessage(
+            f"Previewed {len(accepted)} service(s); "
+            f"{len(proposals) - len(accepted)} exceeded 5 m. "
+            "Preview is temporary and not approved for construction.",
+            12000
+        )
 
     def select_by_location(self):
         """Select features intersecting another layer in the same CRS."""
