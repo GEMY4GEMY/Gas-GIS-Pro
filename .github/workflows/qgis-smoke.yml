@@ -54,6 +54,7 @@ jobs:
           assert window.layer_tree.topLevelItemCount() == 0
           from unittest.mock import patch
           from qgis.PyQt.QtWidgets import QInputDialog, QFileDialog
+          from qgis.PyQt.QtCore import Qt
           with tempfile.TemporaryDirectory() as tmp:
               ui_gpkg = Path(tmp) / 'ui_layers.gpkg'
               with patch.object(QInputDialog, 'getItem', side_effect=[
@@ -87,6 +88,22 @@ jobs:
               'gasgis.main.QInputDialog.getText', return_value=('63', True)
           ):
               window.select_by_attribute()
+          assert layer.selectedFeatureCount() == 1
+          reference_layer = QgsVectorLayer('Point?crs=EPSG:32636', 'reference_points', 'memory')
+          reference_feature = QgsFeature(reference_layer.fields())
+          reference_feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(1, 0)))
+          assert reference_layer.dataProvider().addFeatures([reference_feature])[0]
+          QgsProject.instance().addMapLayer(reference_layer)
+          window.refresh_layers()
+          window.layer_tree.setCurrentItem(next(
+              window.layer_tree.topLevelItem(i)
+              for i in range(window.layer_tree.topLevelItemCount())
+              if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id()
+          ))
+          with patch('gasgis.main.QInputDialog.getItem', return_value=(
+              f'{reference_layer.name()} [{reference_layer.id()}]', True
+          )):
+              window.select_by_location()
           assert layer.selectedFeatureCount() == 1
           window.zoom_to_selected_layer()
           from qgis.PyQt.QtCore import Qt
