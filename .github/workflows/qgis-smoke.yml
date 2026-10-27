@@ -229,6 +229,15 @@ jobs:
           with patch('gasgis.main.QInputDialog.getDouble', return_value=(1.7, True)):
               window.set_selected_symbol_size()
           assert abs(line_style_layer.renderer().symbol().width() - 1.7) < 0.001
+          line_style_layer.setName('gas_mains')
+          window.apply_gas_layer_style()
+          assert line_style_layer.renderer().symbol().color().name() == '#c0392b'
+          assert abs(line_style_layer.renderer().symbol().width() - 0.9) < 0.001
+          line_style_layer.setName('gas_valves')
+          with patch('gasgis.main.QMessageBox.warning') as mismatch_warning:
+              window.apply_gas_layer_style()
+              mismatch_warning.assert_called_once()
+          assert line_style_layer.renderer().symbol().color().name() == '#c0392b'
           window.layer_tree.setCurrentItem(next(
               window.layer_tree.topLevelItem(i)
               for i in range(window.layer_tree.topLevelItemCount())
