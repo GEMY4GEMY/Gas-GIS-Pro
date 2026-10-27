@@ -340,7 +340,9 @@ class MainWindow(QMainWindow):
             feature for feature in source.getFeatures()
             if feature.hasGeometry() and not feature.geometry().isEmpty()
         ]
-        spatial_index = QgsSpatialIndex(source_features)
+        spatial_index = QgsSpatialIndex()
+        for source_feature in source_features:
+            spatial_index.addFeature(source_feature)
         source_geometries = {
             feature.id(): feature.geometry() for feature in source_features
         }
