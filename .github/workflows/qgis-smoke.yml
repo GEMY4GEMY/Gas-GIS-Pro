@@ -112,6 +112,23 @@ jobs:
           ]), patch('gasgis.main.QInputDialog.getDouble', return_value=(0.5, True)):
               window.select_by_location()
           assert layer.selectedFeatureCount() == 1
+          with patch('gasgis.main.QInputDialog.getItem', side_effect=[
+              (f'{reference_layer.name()} [{reference_layer.id()}]', True),
+              ('Within distance (meters)', True)
+          ]), patch('gasgis.main.QInputDialog.getDouble', return_value=(0.5, True)):
+              window.select_by_location()
+          assert layer.selectedFeatureCount() == 1
+          far_reference = QgsVectorLayer('Point?crs=EPSG:32636', 'far_reference', 'memory')
+          far_feature = QgsFeature(far_reference.fields())
+          far_feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(100, 100)))
+          assert far_reference.dataProvider().addFeatures([far_feature])[0]
+          QgsProject.instance().addMapLayer(far_reference)
+          with patch('gasgis.main.QInputDialog.getItem', side_effect=[
+              (f'{far_reference.name()} [{far_reference.id()}]', True),
+              ('Within distance (meters)', True)
+          ]), patch('gasgis.main.QInputDialog.getDouble', return_value=(0.5, True)):
+              window.select_by_location()
+          assert layer.selectedFeatureCount() == 0
           window.zoom_to_selected_layer()
           from qgis.PyQt.QtCore import Qt
           item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
