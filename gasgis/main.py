@@ -27,6 +27,35 @@ from qgis.PyQt.QtWidgets import (
 )
 
 
+GAS_STYLES = {
+    "gas_mains": ("line", {"line_color": "#c0392b", "line_width": "0.9"}),
+    "gas_services": ("line", {"line_color": "#e67e22", "line_width": "0.5"}),
+    "gas_valves": ("point", {"color": "#2980b9", "size": "3.5"}),
+    "gas_risers": ("point", {"color": "#27ae60", "size": "2.8"}),
+}
+
+
+def apply_gas_style(layer):
+    """Apply the standard symbol for a matching gas asset vector layer."""
+    style = GAS_STYLES.get(layer.name())
+    if style is None:
+        return False
+    kind, properties = style
+    expected = QgsWkbTypes.LineGeometry if kind == "line" else QgsWkbTypes.PointGeometry
+    if layer.geometryType() != expected:
+        return False
+    renderer = layer.renderer()
+    if renderer is None or not hasattr(renderer, "setSymbol"):
+        return False
+    symbol = (
+        QgsLineSymbol.createSimple(properties)
+        if kind == "line" else QgsMarkerSymbol.createSimple(properties)
+    )
+    renderer.setSymbol(symbol)
+    layer.triggerRepaint()
+    return True
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -238,13 +267,7 @@ class MainWindow(QMainWindow):
         if not isinstance(layer, QgsVectorLayer) or not layer.isValid():
             self.statusBar().showMessage("Select a gas asset layer first.", 5000)
             return
-        styles = {
-            "gas_mains": ("line", {"line_color": "#c0392b", "line_width": "0.9"}),
-            "gas_services": ("line", {"line_color": "#e67e22", "line_width": "0.5"}),
-            "gas_valves": ("point", {"color": "#2980b9", "size": "3.5"}),
-            "gas_risers": ("point", {"color": "#27ae60", "size": "2.8"}),
-        }
-        style = styles.get(layer.name())
+        style = GAS_STYLES.get(layer.name())
         if style is None:
             QMessageBox.information(
                 self, "Gas style", "Rename the layer to a standard gas asset name first."
@@ -418,6 +441,7 @@ class MainWindow(QMainWindow):
         except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as exc:
             QMessageBox.warning(self, "Create layer failed", str(exc))
             return
+        apply_gas_style(layer)
         self.project.addMapLayer(layer)
         self.statusBar().showMessage(f"Created {layer_name} in {path}", 10000)
 
