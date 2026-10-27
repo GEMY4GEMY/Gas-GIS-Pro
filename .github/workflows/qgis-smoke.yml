@@ -59,6 +59,21 @@ jobs:
           assert abs(proposed[0]['distance_m'] - 4.0) < 0.001
           assert proposed[0]['main_point'] == (1.0, 0.0)
           from gasgis.main import MainWindow
+          preview_window = MainWindow()
+          layer.setName('gas_mains')
+          riser_points.setName('gas_risers')
+          QgsProject.instance().addMapLayer(layer)
+          QgsProject.instance().addMapLayer(riser_points)
+          preview_window.preview_service_connections()
+          preview_layers = QgsProject.instance().mapLayersByName('service_preview')
+          assert len(preview_layers) == 1
+          assert preview_layers[0].featureCount() == 1
+          assert abs(next(preview_layers[0].getFeatures())['length_m'] - 4.0) < 0.001
+          QgsProject.instance().clear()
+          preview_window.close()
+          del preview_window
+          layer.setName('pipes')
+          from gasgis.main import MainWindow
           window = MainWindow()
           assert window.windowTitle().startswith('Gas GIS Pro')
           assert window.layer_tree.topLevelItemCount() == 0
