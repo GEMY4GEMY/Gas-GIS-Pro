@@ -61,6 +61,12 @@ jobs:
                   window.new_gas_layer()
               assert len(QgsProject.instance().mapLayersByName('gas_mains')) == 1
               assert len(QgsProject.instance().mapLayersByName('gas_services')) == 1
+              created_mains = QgsProject.instance().mapLayersByName('gas_mains')[0]
+              created_services = QgsProject.instance().mapLayersByName('gas_services')[0]
+              assert created_mains.renderer().symbol().color().name() == '#c0392b'
+              assert abs(created_mains.renderer().symbol().width() - 0.9) < 0.001
+              assert created_services.renderer().symbol().color().name() == '#e67e22'
+              assert abs(created_services.renderer().symbol().width() - 0.5) < 0.001
               QgsProject.instance().clear()
               window.refresh_layers()
 
