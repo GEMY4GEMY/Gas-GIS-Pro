@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
             ("Rename layer", self.rename_selected_layer),
             ("Layer color", self.set_selected_layer_color),
             ("Symbol size", self.set_selected_symbol_size),
+            ("Gas style", self.apply_gas_layer_style),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -229,6 +230,47 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def apply_gas_layer_style(self):
+        """Apply standard visual styles for known gas asset layers."""
+        item = self.layer_tree.currentItem()
+        layer = self.project.mapLayer(item.data(0, Qt.UserRole)) if item else None
+        if not isinstance(layer, QgsVectorLayer) or not layer.isValid():
+            self.statusBar().showMessage("Select a gas asset layer first.", 5000)
+            return
+        styles = {
+            "gas_mains": ("line", {"line_color": "#c0392b", "line_width": "0.9"}),
+            "gas_services": ("line", {"line_color": "#e67e22", "line_width": "0.5"}),
+            "gas_valves": ("point", {"color": "#2980b9", "size": "3.5"}),
+            "gas_risers": ("point", {"color": "#27ae60", "size": "2.8"}),
+        }
+        style = styles.get(layer.name())
+        if style is None:
+            QMessageBox.information(
+                self, "Gas style", "Rename the layer to a standard gas asset name first."
+            )
+            return
+        kind, properties = style
+        expected = (
+            QgsWkbTypes.LineGeometry if kind == "line" else QgsWkbTypes.PointGeometry
+        )
+        if layer.geometryType() != expected:
+            QMessageBox.warning(
+                self, "Gas style", "Layer geometry does not match the gas asset type."
+            )
+            return
+        symbol = (
+            QgsLineSymbol.createSimple(properties)
+            if kind == "line" else QgsMarkerSymbol.createSimple(properties)
+        )
+        renderer = layer.renderer()
+        if renderer is None or not hasattr(renderer, "setSymbol"):
+            QMessageBox.warning(self, "Gas style", "Layer renderer is not a single-symbol renderer.")
+            return
+        renderer.setSymbol(symbol)
+        layer.triggerRepaint()
+        self.canvas.refresh()
+        self.statusBar().showMessage("Gas style applied; save project to preserve it.", 5000)
 
     def set_selected_symbol_size(self):
         """Set point marker size or line width in millimeters (project style)."""
