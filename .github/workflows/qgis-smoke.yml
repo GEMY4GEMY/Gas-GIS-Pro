@@ -206,6 +206,26 @@ jobs:
           with patch('gasgis.main.QInputDialog.getDouble', return_value=(4.5, True)):
               window.set_selected_symbol_size()
           assert abs(removal_layer.renderer().symbol().size() - 4.5) < 0.001
+          line_style_layer = QgsVectorLayer('LineString?crs=EPSG:32636', 'styled_mains', 'memory')
+          QgsProject.instance().addMapLayer(line_style_layer)
+          window.refresh_layers()
+          line_item = next(
+              window.layer_tree.topLevelItem(i)
+              for i in range(window.layer_tree.topLevelItemCount())
+              if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == line_style_layer.id()
+          )
+          window.layer_tree.setCurrentItem(line_item)
+          with patch('gasgis.main.QColorDialog.getColor', return_value=QColor('#aa5522')):
+              window.set_selected_layer_color()
+          assert line_style_layer.renderer().symbol().color().name() == '#aa5522'
+          with patch('gasgis.main.QInputDialog.getDouble', return_value=(1.7, True)):
+              window.set_selected_symbol_size()
+          assert abs(line_style_layer.renderer().symbol().width() - 1.7) < 0.001
+          window.layer_tree.setCurrentItem(next(
+              window.layer_tree.topLevelItem(i)
+              for i in range(window.layer_tree.topLevelItemCount())
+              if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == removal_layer.id()
+          ))
           assert removal_layer.startEditing()
           with patch('gasgis.main.QMessageBox.warning') as warning:
               window.remove_selected_layer()
