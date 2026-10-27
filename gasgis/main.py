@@ -14,6 +14,7 @@ from gasgis.network_audit import disconnected_endpoints
 from gasgis.audit_export import export_audit_csv
 from gasgis.geometry_adapter import line_segments, line_parts
 from gasgis.service_layer_adapter import service_proposals
+from gasgis.service_review_export import export_service_review_csv
 from gasgis.unified_audit import audit_network
 from gasgis.crossings import crossing_candidates
 from gasgis.node_adapter import point_nodes
@@ -129,6 +130,7 @@ class MainWindow(QMainWindow):
             ("Select by attribute", self.select_by_attribute),
             ("Select by location", self.select_by_location),
             ("Preview services", self.preview_service_connections),
+            ("Export service review", self.export_service_review),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -292,6 +294,36 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def export_service_review(self):
+        """Export all service proposals for manual engineering review."""
+        mains = self.project.mapLayersByName("gas_mains")
+        risers = self.project.mapLayersByName("gas_risers")
+        if len(mains) != 1 or len(risers) != 1:
+            QMessageBox.warning(
+                self, "Export service review",
+                "Load exactly one gas_mains and one gas_risers layer first."
+            )
+            return
+        try:
+            proposals = service_proposals(risers[0], mains[0], max_distance_m=5.0)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Export service review", str(exc))
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export service review", "service_review.csv",
+            "CSV files (*.csv)"
+        )
+        if not path:
+            return
+        try:
+            export_service_review_csv(path, proposals)
+        except OSError as exc:
+            QMessageBox.warning(self, "Export service review", str(exc))
+            return
+        self.statusBar().showMessage(
+            f"Exported {len(proposals)} proposals for engineering review.", 8000
+        )
 
     def preview_service_connections(self):
         """Preview proposed riser-to-main links without editing source layers."""
