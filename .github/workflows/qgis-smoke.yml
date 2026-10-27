@@ -244,6 +244,12 @@ jobs:
               window.apply_gas_layer_style()
               mismatch_warning.assert_called_once()
           assert line_style_layer.renderer().symbol().color().name() == '#c0392b'
+          line_style_layer.setName('gas_mains')
+          removal_layer.setName('gas_valves')
+          window.style_all_gas_layers()
+          assert line_style_layer.renderer().symbol().color().name() == '#c0392b'
+          assert removal_layer.renderer().symbol().color().name() == '#2980b9'
+          assert abs(removal_layer.renderer().symbol().size() - 3.5) < 0.001
           window.layer_tree.setCurrentItem(next(
               window.layer_tree.topLevelItem(i)
               for i in range(window.layer_tree.topLevelItemCount())
