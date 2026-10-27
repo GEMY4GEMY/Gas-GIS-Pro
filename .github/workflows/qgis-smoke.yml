@@ -40,6 +40,12 @@ jobs:
           assert layer.dataProvider().addFeatures([feature])[0]
           assert len(line_parts(layer)) == 1
           assert len(line_segments(layer)) == 2
+          from qgis.core import QgsField
+          from qgis.PyQt.QtCore import QVariant
+          layer.dataProvider().addAttributes([QgsField('diameter_mm', QVariant.Int)])
+          layer.updateFields()
+          layer.changeAttributeValue(feature.id(), 0, 63) if layer.isEditable() else None
+          layer.dataProvider().changeAttributeValues({feature.id(): {0: 63}})
           assert len(audit_network(line_parts(layer), line_segments(layer))) == 2
           from gasgis.main import MainWindow
           window = MainWindow()
@@ -76,6 +82,11 @@ jobs:
           window.zoom_to_selected_layer()
           assert 'Select a layer first' in window.statusBar().currentMessage()
           window.layer_tree.setCurrentItem(window.layer_tree.topLevelItem(0))
+          with patch('gasgis.main.QInputDialog.getItem', return_value=('diameter_mm', True)), patch(
+              'gasgis.main.QInputDialog.getText', return_value=('63', True)
+          ):
+              window.select_by_attribute()
+          assert layer.selectedFeatureCount() == 1
           window.zoom_to_selected_layer()
           from qgis.PyQt.QtCore import Qt
           item = next(window.layer_tree.topLevelItem(i) for i in range(window.layer_tree.topLevelItemCount()) if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id())
