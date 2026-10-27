@@ -44,8 +44,9 @@ jobs:
           from qgis.PyQt.QtCore import QVariant
           layer.dataProvider().addAttributes([QgsField('diameter_mm', QVariant.Int)])
           layer.updateFields()
-          layer.changeAttributeValue(feature.id(), 0, 63) if layer.isEditable() else None
-          layer.dataProvider().changeAttributeValues({feature.id(): {0: 63}})
+          stored_feature_id = next(layer.getFeatures()).id()
+          assert layer.dataProvider().changeAttributeValues({stored_feature_id: {0: 63}})
+          assert next(layer.getFeatures())['diameter_mm'] == 63
           assert len(audit_network(line_parts(layer), line_segments(layer))) == 2
           from gasgis.main import MainWindow
           window = MainWindow()
