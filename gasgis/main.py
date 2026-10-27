@@ -19,7 +19,7 @@ from gasgis.node_adapter import point_nodes
 from gasgis.node_connectivity import match_nodes
 from qgis.core import QgsGeometry, QgsPointXY, QgsFeature, QgsField
 from qgis.PyQt.QtCore import QVariant
-from qgis.core import QgsSnappingConfig, QgsWkbTypes, QgsLineSymbol, QgsMarkerSymbol, QgsUnitTypes
+from qgis.core import QgsSnappingConfig, QgsWkbTypes, QgsLineSymbol, QgsMarkerSymbol, QgsUnitTypes, QgsSpatialIndex, QgsRectangle
 from qgis.PyQt.QtWidgets import (
     QMainWindow, QFileDialog, QMessageBox, QToolBar, QDockWidget,
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
@@ -336,19 +336,28 @@ class MainWindow(QMainWindow):
             )
             if not ok:
                 return
-        geometries = [
-            feature.geometry() for feature in source.getFeatures()
+        source_features = [
+            feature for feature in source.getFeatures()
             if feature.hasGeometry() and not feature.geometry().isEmpty()
         ]
+        spatial_index = QgsSpatialIndex(source_features)
+        source_geometries = {
+            feature.id(): feature.geometry() for feature in source_features
+        }
         selected = []
         for feature in target.getFeatures():
             if not feature.hasGeometry() or feature.geometry().isEmpty():
                 continue
             geometry = feature.geometry()
+            bounds = geometry.boundingBox()
+            if relation == "Within distance (meters)":
+                bounds.grow(distance)
+            candidate_ids = spatial_index.intersects(bounds)
             if any(
-                geometry.intersects(other) if relation == "Intersects"
-                else geometry.distance(other) <= distance
-                for other in geometries
+                geometry.intersects(source_geometries[feature_id])
+                if relation == "Intersects"
+                else geometry.distance(source_geometries[feature_id]) <= distance
+                for feature_id in candidate_ids
             ):
                 selected.append(feature.id())
         target.selectByIds(selected)
