@@ -15,6 +15,7 @@ from gasgis.audit_export import export_audit_csv
 from gasgis.geometry_adapter import line_segments, line_parts
 from gasgis.service_layer_adapter import service_proposals
 from gasgis.service_review_export import export_service_review_csv
+from gasgis.service_approval import approved_service_proposals
 from gasgis.unified_audit import audit_network
 from gasgis.crossings import crossing_candidates
 from gasgis.node_adapter import point_nodes
@@ -131,6 +132,7 @@ class MainWindow(QMainWindow):
             ("Select by location", self.select_by_location),
             ("Preview services", self.preview_service_connections),
             ("Export service review", self.export_service_review),
+            ("Check service approvals", self.check_service_approvals),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -294,6 +296,34 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def check_service_approvals(self):
+        """Check external approvals against live GIS layers without saving geometry."""
+        mains = self.project.mapLayersByName("gas_mains")
+        risers = self.project.mapLayersByName("gas_risers")
+        if len(mains) != 1 or len(risers) != 1:
+            QMessageBox.warning(
+                self, "Check service approvals",
+                "Load exactly one gas_mains and one gas_risers layer first."
+            )
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open reviewed service CSV", "", "CSV files (*.csv)"
+        )
+        if not path:
+            return
+        try:
+            current = service_proposals(risers[0], mains[0], max_distance_m=5.0)
+            approved = approved_service_proposals(path, current)
+        except (ValueError, OSError) as exc:
+            QMessageBox.warning(self, "Check service approvals", str(exc))
+            return
+        QMessageBox.information(
+            self, "Check service approvals",
+            f"{len(approved)} approved of {len(current)} proposed connections. "
+            "No GIS features have been saved. Engineering approval must be "
+            "performed by an authorized reviewer."
+        )
 
     def export_service_review(self):
         """Export all service proposals for manual engineering review."""
