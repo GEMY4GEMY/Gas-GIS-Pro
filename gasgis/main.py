@@ -96,6 +96,7 @@ class MainWindow(QMainWindow):
             ("Layer color", self.set_selected_layer_color),
             ("Symbol size", self.set_selected_symbol_size),
             ("Gas style", self.apply_gas_layer_style),
+            ("Style all gas layers", self.style_all_gas_layers),
             ("Start editing", self.start_selected_edit),
             ("Draw feature", self.draw_selected_feature),
             ("Audit pipe ends", self.audit_selected_layer),
@@ -259,6 +260,18 @@ class MainWindow(QMainWindow):
             return
         self.canvas.setExtent(extent)
         self.canvas.refresh()
+
+    def style_all_gas_layers(self):
+        """Apply standard symbols to all recognized gas asset layers in this project."""
+        count = 0
+        for layer in self.project.mapLayers().values():
+            if isinstance(layer, QgsVectorLayer) and layer.isValid():
+                if apply_gas_style(layer):
+                    count += 1
+        self.canvas.refresh()
+        self.statusBar().showMessage(
+            f"Styled {count} gas asset layer(s); save project to keep changes.", 8000
+        )
 
     def apply_gas_layer_style(self):
         """Apply standard visual styles for known gas asset layers."""
