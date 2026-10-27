@@ -100,9 +100,16 @@ jobs:
               for i in range(window.layer_tree.topLevelItemCount())
               if window.layer_tree.topLevelItem(i).data(0, Qt.UserRole) == layer.id()
           ))
-          with patch('gasgis.main.QInputDialog.getItem', return_value=(
-              f'{reference_layer.name()} [{reference_layer.id()}]', True
-          )):
+          with patch('gasgis.main.QInputDialog.getItem', side_effect=[
+              (f'{reference_layer.name()} [{reference_layer.id()}]', True),
+              ('Intersects', True)
+          ]):
+              window.select_by_location()
+          assert layer.selectedFeatureCount() == 1
+          with patch('gasgis.main.QInputDialog.getItem', side_effect=[
+              (f'{reference_layer.name()} [{reference_layer.id()}]', True),
+              ('Within distance (meters)', True)
+          ]), patch('gasgis.main.QInputDialog.getDouble', return_value=(0.5, True)):
               window.select_by_location()
           assert layer.selectedFeatureCount() == 1
           window.zoom_to_selected_layer()
