@@ -63,6 +63,27 @@ def _matches_numeric(candidate, expected):
         return False
 
 
+def _compare_attribute(candidate, expected, operator, numeric):
+    """Compare non-null attributes using an explicitly allowed operator."""
+    if candidate is None or str(candidate) == "NULL":
+        return False
+    if numeric:
+        try:
+            candidate = float(candidate)
+        except (TypeError, ValueError):
+            return False
+    else:
+        candidate = str(candidate)
+    return {
+        "=": lambda a, b: a == b,
+        "!=": lambda a, b: a != b,
+        ">": lambda a, b: a > b,
+        ">=": lambda a, b: a >= b,
+        "<": lambda a, b: a < b,
+        "<=": lambda a, b: a <= b,
+    }[operator](candidate, expected)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -285,13 +306,24 @@ class MainWindow(QMainWindow):
         )
         if not ok:
             return
+        operator, ok = QInputDialog.getItem(
+            self, "Select by attribute", "Operator:",
+            ["=", "!=", ">", ">=", "<", "<="], 0, False
+        )
+        if not ok:
+            return
         value, ok = QInputDialog.getText(
-            self, "Select by attribute", f"Exact value for {field_name}:"
+            self, "Select by attribute", f"Value for {field_name}:"
         )
         if not ok:
             return
         index = layer.fields().indexFromName(field_name)
         field = layer.fields().at(index)
+        if not field.isNumeric() and operator not in ("=", "!="):
+            QMessageBox.warning(
+                self, "Select by attribute", "Ordering operators require a numeric field."
+            )
+            return
         if field.isNumeric():
             try:
                 typed_value = float(value)
@@ -300,17 +332,14 @@ class MainWindow(QMainWindow):
                     self, "Select by attribute", "Enter a valid numeric value."
                 )
                 return
-            matches = [
-                feature.id() for feature in layer.getFeatures()
-                if feature.attributes()[index] is not None
-                and str(feature.attributes()[index]) != "NULL"
-                and _matches_numeric(feature.attributes()[index], typed_value)
-            ]
         else:
-            matches = [
-                feature.id() for feature in layer.getFeatures()
-                if str(feature.attributes()[index]) == value
-            ]
+            typed_value = value
+        matches = [
+            feature.id() for feature in layer.getFeatures()
+            if _compare_attribute(
+                feature.attributes()[index], typed_value, operator, field.isNumeric()
+            )
+        ]
         layer.selectByIds(matches)
         self.statusBar().showMessage(f"Selected {len(matches)} feature(s).", 8000)
 
